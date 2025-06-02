@@ -9,14 +9,13 @@
 
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f8fafc; /* bg-gray-50, similar ao Google Ads */
             color: #1f2937; /* Texto cinza escuro padrão */
         }
-        /* Estilo para o spinner de carregamento */
+        /* Estilo para o spinner de carregamento (mantido caso precise, mas não será usado na tela inicial) */
         .loading-spinner {
             border: 4px solid rgba(255, 255, 255, 0.3);
             border-top: 4px solid #ffffff;
@@ -32,61 +31,12 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        /* Estilos para esconder/mostrar seções */
-        .hidden-auth {
-            display: none;
-        }
-        .visible-auth {
-            display: flex; /* ou block, dependendo do layout desejado */
-        }
     </style>
 </head>
 <body class="p-4 bg-gray-50 min-h-screen flex items-center justify-center text-gray-900">
     
-    <div id="loadingApp" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center text-white text-2xl z-50">
-        Carregando CRM...
-    </div>
-
-    <div id="loginSection" class="container mx-auto p-6 bg-white rounded-xl shadow-lg max-w-md w-full hidden-auth flex flex-col items-center space-y-6">
-        <img src="images/VIZIONE%20LOGO%20FUNDO%20BRANCO-01-01.png" alt="Logo da Empresa" class="w-32 h-32 rounded-lg mx-auto">
-        <h1 class="text-3xl font-bold text-gray-800 text-center">Login no CRM</h1>
-        
-        <div class="w-full">
-            <label for="loginEmail" class="block text-sm font-medium text-gray-700 mb-1">Email:</label>
-            <input type="email" id="loginEmail" placeholder="seu@email.com"
-                   class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
-        </div>
-        
-        <div class="w-full">
-            <label for="loginPassword" class="block text-sm font-medium text-gray-700 mb-1">Senha:</label>
-            <input type="password" id="loginPassword" placeholder="********"
-                   class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
-        </div>
-        
-        <button id="loginButton"
-                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
-            Entrar
-            <span id="loginLoadingSpinner" class="loading-spinner hidden"></span>
-        </button>
-        
-        <p class="text-center text-gray-600 text-sm">
-            Não tem uma conta? Peça ao administrador para criar uma.
-        </p>
-        
-        <div id="loginMessageBox" class="hidden p-3 text-center text-sm rounded-lg" role="alert"></div>
-    </div>
-
-    <div id="crmApp" class="container mx-auto p-6 bg-white rounded-xl shadow-lg max-w-4xl w-full hidden-auth">
-        <div class="flex justify-between items-center mb-8">
-            <h1 class="text-3xl font-bold text-gray-800">Cadastro de Clientes CRM</h1>
-            <div class="flex items-center space-x-2">
-                <span id="loggedInUserEmail" class="text-gray-700 text-sm"></span>
-                <button id="logoutButton"
-                        class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg text-sm transition duration-300 ease-in-out shadow-md">
-                    Sair
-                </button>
-            </div>
-        </div>
+    <div id="crmApp" class="container mx-auto p-6 bg-white rounded-xl shadow-lg max-w-4xl w-full">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-8">Cadastro de Clientes CRM</h1>
 
         <div class="mb-8 p-6 bg-white rounded-lg border border-gray-200">
             <label for="rawDataInput" class="block text-lg font-semibold text-gray-700 mb-3">
@@ -257,25 +207,11 @@
             firebase.app(); 
         }
         
-        // Obtenha uma referência para o Firestore e Auth
+        // Obtenha uma referência para o Firestore
         const db = firebase.firestore();
-        const auth = firebase.auth(); 
 
         let clients = [];
         let editingClientId = null; 
-
-        // Referências a elementos de UI de Login/Logout
-        const loadingApp = document.getElementById('loadingApp');
-        const loginSection = document.getElementById('loginSection');
-        const crmApp = document.getElementById('crmApp');
-        const loginEmailField = document.getElementById('loginEmail');
-        const loginPasswordField = document.getElementById('loginPasswordField');
-        const loginButton = document.getElementById('loginButton');
-        const loginLoadingSpinner = document.getElementById('loginLoadingSpinner');
-        const loginMessageBox = document.getElementById('loginMessageBox');
-        const logoutButton = document.getElementById('logoutButton');
-        const loggedInUserEmailSpan = document.getElementById('loggedInUserEmail');
-
 
         // Referências aos elementos do DOM do CRM (restante)
         const rawDataInput = document.getElementById('rawDataInput');
@@ -613,7 +549,7 @@
 
         // Listener para o novo botão de excluir
         deleteClientButton.addEventListener('click', async () => {
-            if (!selectedClientIdForDeletion) {
+            if (!editingClientId) {
                 showMessage('Selecione um cliente na tabela primeiro para excluí-lo.', 'info');
                 return;
             }
@@ -622,8 +558,8 @@
             deleteLoadingSpinner.classList.remove('hidden');
 
             try {
-                await db.collection("clientes").doc(selectedClientIdForDeletion).delete();
-                console.log("Documento excluído com ID: ", selectedClientIdForDeletion);
+                await db.collection("clientes").doc(editingClientId).delete();
+                console.log("Documento excluído com ID: ", editingClientId);
 
                 await loadClientsFromFirestore();
                 clearForm();
