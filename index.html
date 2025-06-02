@@ -1,10 +1,428 @@
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Permite que qualquer pessoa leia e escreva na coleção 'clientes'
-    // ATENÇÃO: Esta regra é para desenvolvimento. Para produção, adicione autenticação.
-    match /clientes/{document=**} {
-      allow read, write: if true;
-    }
-  }
-}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRM de Clientes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* bg-gray-50, similar ao Google Ads */
+            color: #1f2937; /* Texto cinza escuro padrão */
+        }
+        /* Estilo para o spinner de carregamento */
+        .loading-spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #ffffff;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="p-4 bg-gray-50 min-h-screen flex items-center justify-center text-gray-900">
+    <div class="container mx-auto p-6 bg-white rounded-xl shadow-lg max-w-4xl w-full">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-8">Cadastro de Clientes CRM</h1>
+
+        <div class="mb-8 p-6 bg-white rounded-lg border border-gray-200">
+            <label for="rawDataInput" class="block text-lg font-semibold text-gray-700 mb-3">
+                Cole os dados do Google Meu Negócio aqui:
+            </label>
+            <textarea id="rawDataInput" rows="8"
+                      class="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 placeholder-gray-400"
+                      placeholder="Ex: Nome da Empresa: Minha Loja Ltda.&#10;Telefone: (11) 98765-4321&#10;Site: www.minhaloja.com.br&#10;Endereço: Rua Exemplo, 123, Centro, Cidade - SP&#10;Email: contato@minhaloja.com.br&#10;Status: Novo"></textarea>
+            <button id="fillFormButton"
+                    class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
+                Preencher Formulário
+            </button>
+        </div>
+
+        <div class="mb-8 p-6 bg-white rounded-lg border border-gray-200">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">Detalhes do Cliente</h2>
+            <form id="clientForm" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label for="companyName" class="block text-sm font-medium text-gray-700 mb-1">Nome da Empresa:</label>
+                    <input type="text" id="companyName"
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
+                </div>
+                <div>
+                    <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">Telefone:</label>
+                    <input type="text" id="phone"
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
+                </div>
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email:</label>
+                    <input type="email" id="email"
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
+                </div>
+                <div>
+                    <label for="website" class="block text-sm font-medium text-gray-700 mb-1">Site:</label>
+                    <input type="url" id="website"
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
+                </div>
+                <div class="md:col-span-2">
+                    <label for="address" class="block text-sm font-medium text-gray-700 mb-1">Endereço:</label>
+                    <input type="text" id="address"
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
+                </div>
+                <div>
+                    <label for="status" class="block text-sm font-medium text-gray-700 mb-1">Status:</label>
+                    <select id="status"
+                            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
+                        <option value="Novo">Novo</option>
+                        <option value="Em Andamento">Em Andamento</option>
+                        <option value="Aguardando Contato">Aguardando Contato</option>
+                        <option value="Fechado">Fechado</option>
+                        <option value="Perdido">Perdido</option>
+                    </select>
+                </div>
+                <div class="md:col-span-2">
+                    <label for="notes" class="block text-sm font-medium text-gray-700 mb-1">Observações:</label>
+                    <textarea id="notes" rows="4"
+                              class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900"></textarea>
+                </div>
+            </form>
+            <button id="addClientButton"
+                    class="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
+                Cadastrar Cliente
+                <span id="loadingSpinner" class="loading-spinner hidden"></span>
+            </button>
+        </div>
+
+        <div class="p-6 bg-white rounded-lg border border-gray-200">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">Clientes Cadastrados</h2>
+            <div class="mb-4 text-right">
+                <button id="exportExcelButton"
+                        class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out shadow-md">
+                    Exportar para Excel
+                </button>
+            </div>
+            <div class="overflow-x-auto rounded-lg shadow-md">
+                <table id="clientTable" class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider rounded-tl-lg">Nome da Empresa</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Telefone</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Email</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Site</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Endereço</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider rounded-tr-lg">Observações</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200" id="clientTableBody">
+                        </tbody>
+                </table>
+            </div>
+            <div id="messageBox" class="hidden mt-4 p-3 text-center text-sm rounded-lg" role="alert"></div>
+        </div>
+    </div>
+
+    <script>
+        // SEU OBJETO firebaseConfig DO PASSO 3 DA FASE 1
+        const firebaseConfig = {
+            apiKey: "AIzaSyABjUhnHsga9jPyl0Vz57BLam06j8a0KYY",
+            authDomain: "crm-vizione-firestore.firebaseapp.com",
+            projectId: "crm-vizione-firestore",
+            storageBucket: "crm-vizione-firestore.firebasestorage.app",
+            messagingSenderId: "232305324276",
+            appId: "1:232305324276:web:5bd26e12569449bb5eeea1"
+        };
+
+        // Inicialize o Firebase
+        // Verifique se o Firebase já foi inicializado para evitar erros
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        } else {
+            firebase.app(); // Se já inicializado, apenas obtenha a instância padrão
+        }
+        
+        // Obtenha uma referência para o Firestore
+        const db = firebase.firestore();
+
+        // Array para armazenar os clientes cadastrados (temporariamente para exibição local e exportação)
+        // Este array será preenchido com dados do Firestore ao carregar a página
+        let clients = [];
+
+        // Referências aos elementos do DOM
+        const rawDataInput = document.getElementById('rawDataInput');
+        const fillFormButton = document.getElementById('fillFormButton');
+        const clientForm = document.getElementById('clientForm');
+        const addClientButton = document.getElementById('addClientButton');
+        const clientTableBody = document.getElementById('clientTableBody');
+        const messageBox = document.getElementById('messageBox');
+        const exportExcelButton = document.getElementById('exportExcelButton');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+
+        // Referências aos campos do formulário
+        const companyNameField = document.getElementById('companyName');
+        const phoneField = document.getElementById('phone');
+        const emailField = document.getElementById('email');
+        const websiteField = document.getElementById('website');
+        const addressField = document.getElementById('address');
+        const statusField = document.getElementById('status');
+        const notesField = document.getElementById('notes');
+
+        /**
+         * Exibe uma mensagem na caixa de feedback do usuário.
+         * @param {string} message - A mensagem a ser exibida.
+         * @param {string} type - O tipo da mensagem ('success', 'error', 'info').
+         */
+        function showMessage(message, type) {
+            messageBox.textContent = message;
+            messageBox.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700', 'bg-yellow-100', 'text-yellow-700');
+            if (type === 'success') {
+                messageBox.classList.add('bg-green-100', 'text-green-700');
+            } else if (type === 'error') {
+                messageBox.classList.add('bg-red-100', 'text-red-700');
+            } else {
+                messageBox.classList.add('bg-yellow-100', 'text-yellow-700');
+            }
+            messageBox.classList.remove('hidden');
+            setTimeout(() => {
+                messageBox.classList.add('hidden');
+            }, 3000);
+        }
+
+        /**
+         * Limpa todos os campos do formulário.
+         */
+        function clearForm() {
+            companyNameField.value = '';
+            phoneField.value = '';
+            emailField.value = '';
+            websiteField.value = '';
+            addressField.value = '';
+            statusField.value = 'Novo';
+            notesField.value = '';
+        }
+
+        /**
+         * Preenche o formulário com os dados de um objeto cliente.
+         * @param {object} client - O objeto cliente contendo os dados.
+         */
+        function fillForm(client) {
+            companyNameField.value = client.companyName || '';
+            phoneField.value = client.phone || '';
+            emailField.value = client.email || '';
+            websiteField.value = client.website || '';
+            addressField.value = client.address || '';
+            statusField.value = client.status || 'Novo';
+            notesField.value = client.notes || '';
+        }
+
+        /**
+         * Analisa o texto bruto colado e tenta extrair informações do cliente.
+         * @param {string} rawText - O texto bruto contido na área de texto.
+         * @returns {object} Um objeto contendo os dados do cliente extraídos.
+         */
+        function parseRawData(rawText) {
+            const data = {};
+            const companyNameMatch = rawText.match(/(?:Nome da Empresa:|Empresa:)\s*([^\n]+)/i) || rawText.match(/^([^\n]+)/);
+            if (companyNameMatch) {
+                data.companyName = companyNameMatch[1].trim();
+            }
+            const phoneMatch = rawText.match(/(?:\(?\d{2}\)?\s*\d{4,5}[-\s]?\d{4}|\+\d{2}\s*\d{2}\s*\d{4,5}[-\s]?\d{4})/);
+            if (phoneMatch) {
+                data.phone = phoneMatch[0].trim();
+            }
+            const emailMatch = rawText.match(/[\w\.-]+@[\w\.-]+\.\w+/);
+            if (emailMatch) {
+                data.email = emailMatch[0].trim();
+            }
+            const websiteMatch = rawText.match(/(?:https?:\/\/)?(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+(?:\/[^\s]*)?)/);
+            if (websiteMatch) {
+                data.website = websiteMatch[0].trim();
+                if (!data.website.startsWith('http://') && !data.website.startsWith('https://')) {
+                    data.website = 'http://' + data.website;
+                }
+            }
+            const addressMatch = rawText.match(/(?:Endereço:|Rua|Av\.|Avenida|Travessa|Praça)\s*([^\n]+(?:,\s*\d+)?(?:,\s*[^\n]+)?(?:-\s*[^\n]+)?(?:,\s*CEP\s*\d{5}-?\d{3})?)/i);
+            if (addressMatch) {
+                data.address = addressMatch[0].trim();
+            } else {
+                const genericAddressMatch = rawText.match(/(\d{1,5}\s+[A-Za-z\s]+\s+(?:Rua|Av\.|Avenida|Travessa|Praça|Bairro|Centro|Cidade|Estado)[^\n]*)/i);
+                if (genericAddressMatch) {
+                    data.address = genericAddressMatch[0].trim();
+                }
+            }
+            const statusMatch = rawText.match(/(?:Status:)\s*(Novo|Em Andamento|Aguardando Contato|Fechado|Perdido)/i);
+            if (statusMatch) {
+                data.status = statusMatch[1].charAt(0).toUpperCase() + statusMatch[1].slice(1).toLowerCase();
+                const validStatuses = ['Novo', 'Em Andamento', 'Aguardando Contato', 'Fechado', 'Perdido'];
+                if (!validStatuses.includes(data.status)) {
+                    data.status = 'Novo';
+                }
+            } else {
+                data.status = 'Novo';
+            }
+            let notes = rawText;
+            for (const key in data) {
+                if (data[key]) {
+                    notes = notes.replace(new RegExp(data[key].replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'gi'), '').trim();
+                }
+            }
+            data.notes = notes.replace(/\s{2,}/g, ' ').trim();
+            return data;
+        }
+
+        /**
+         * Carrega os clientes do Firestore e os renderiza na tabela.
+         */
+        async function loadClientsFromFirestore() {
+            clients = []; // Limpa o array local antes de carregar
+            try {
+                const clientsRef = db.collection("clientes");
+                const snapshot = await clientsRef.get(); // Obtém todos os documentos da coleção "clientes"
+
+                snapshot.forEach(doc => {
+                    const clientData = doc.data();
+                    clients.push({ id: doc.id, ...clientData }); // Adiciona o ID do documento para futura edição/deleção
+                });
+                renderClientTable();
+                showMessage('Clientes carregados do Firestore com sucesso!', 'success');
+            } catch (error) {
+                console.error("Erro ao carregar clientes do Firestore: ", error);
+                showMessage('Erro ao carregar clientes. Verifique as regras de segurança do Firestore.', 'error');
+            }
+        }
+
+        /**
+         * Renderiza a tabela de clientes com os dados atuais do array 'clients'.
+         */
+        function renderClientTable() {
+            clientTableBody.innerHTML = '';
+            if (clients.length === 0) {
+                clientTableBody.innerHTML = `<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">Nenhum cliente cadastrado ainda.</td></tr>`;
+                return;
+            }
+
+            clients.forEach((client, index) => {
+                const row = document.createElement('tr');
+                row.classList.add('hover:bg-gray-50', 'cursor-pointer', 'transition', 'duration-150', 'ease-in-out');
+                row.dataset.index = index; // Armazena o índice do cliente na linha para fácil acesso
+                row.dataset.id = client.id; // Armazena o ID do Firestore na linha
+
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 rounded-bl-lg">${client.companyName || ''}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${client.phone || ''}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${client.email || ''}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${client.website || ''}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${client.address || ''}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${client.status || 'Novo'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 rounded-br-lg">${client.notes || ''}</td>
+                `;
+                clientTableBody.appendChild(row);
+            });
+        }
+
+        /**
+         * Exporta os dados da tabela de clientes para um arquivo XLSX.
+         */
+        function exportToExcel() {
+            if (clients.length === 0) {
+                showMessage('Não há clientes para exportar.', 'info');
+                return;
+            }
+            const headers = [
+                "Nome da Empresa", "Telefone", "Email", "Site", "Endereço", "Status", "Observações"
+            ];
+            const data = clients.map(client => [
+                client.companyName,
+                client.phone,
+                client.email,
+                client.website,
+                client.address,
+                client.status,
+                client.notes
+            ]);
+            const wsData = [headers, ...data];
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            XLSX.utils.book_append_sheet(wb, ws, "Clientes CRM");
+            XLSX.writeFile(wb, "clientes_crm.xlsx");
+            showMessage('Dados exportados para "clientes_crm.xlsx" com sucesso!', 'success');
+        }
+
+        // --- Listeners de Eventos ---
+
+        fillFormButton.addEventListener('click', () => {
+            const rawText = rawDataInput.value;
+            if (rawText.trim() === '') {
+                showMessage('Cole os dados brutos para preencher o formulário.', 'info');
+                return;
+            }
+            const parsedData = parseRawData(rawText);
+            fillForm(parsedData);
+            showMessage('Formulário preenchido com sucesso!', 'success');
+        });
+
+        addClientButton.addEventListener('click', async () => {
+            const clientData = { // Renomeado para evitar conflito com 'client' de Firestore
+                companyName: companyNameField.value.trim(),
+                phone: phoneField.value.trim(),
+                email: emailField.value.trim(),
+                website: websiteField.value.trim(),
+                address: addressField.value.trim(),
+                status: statusField.value,
+                notes: notesField.value.trim(),
+                createdAt: firebase.firestore.FieldValue.serverTimestamp() // Adiciona timestamp do servidor
+            };
+
+            if (!clientData.companyName) {
+                showMessage('O nome da empresa é obrigatório para cadastrar o cliente.', 'error');
+                return;
+            }
+
+            addClientButton.disabled = true;
+            loadingSpinner.classList.remove('hidden');
+
+            try {
+                // Adiciona um novo documento à coleção "clientes" no Firestore
+                const docRef = await db.collection("clientes").add(clientData);
+                console.log("Documento escrito com ID: ", docRef.id);
+                
+                // Recarrega a tabela para exibir o cliente recém-adicionado
+                await loadClientsFromFirestore(); 
+                clearForm();
+                rawDataInput.value = '';
+                showMessage('Cliente cadastrado e salvo no Firestore com sucesso!', 'success');
+            } catch (error) {
+                console.error('Erro ao adicionar documento no Firestore:', error);
+                showMessage(`Erro ao cadastrar cliente no Firestore: ${error.message}. Verifique as regras de segurança do Firestore.`, 'error');
+            } finally {
+                addClientButton.disabled = false;
+                loadingSpinner.classList.add('hidden');
+            }
+        });
+
+        clientTableBody.addEventListener('click', (event) => {
+            const clickedRow = event.target.closest('tr');
+            if (clickedRow && clickedRow.dataset.id) { // Usar dataset.id para obter o ID do Firestore
+                const clientId = clickedRow.dataset.id;
+                const clientToEdit = clients.find(client => client.id === clientId); // Encontrar o cliente pelo ID
+                if (clientToEdit) {
+                    fillForm(clientToEdit);
+                    showMessage(`Dados de "${clientToEdit.companyName}" carregados para edição.`, 'info');
+                }
+            }
+        });
+
+        // Renderiza a tabela inicial carregando os dados do Firestore
+        document.addEventListener('DOMContentLoaded', loadClientsFromFirestore);
+    </script>
+</body>
+</html>
