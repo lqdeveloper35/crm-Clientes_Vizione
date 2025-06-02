@@ -43,7 +43,7 @@
             </label>
             <textarea id="rawDataInput" rows="8"
                       class="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 placeholder-gray-400"
-                      placeholder="Ex: Nome da Empresa: Minha Loja Ltda.&#10;Telefone: (11) 98765-4321&#10;Site: www.minhaloja.com.br&#10;Endereço: Rua Exemplo, 123, Centro, Cidade - SP&#10;Email: contato@minhaloja.com.br&#10;Status: Novo"></textarea>
+                      placeholder="Ex: Nome da Empresa: Minha Loja Ltda.&#10;Telefone: (11) 98765-4321&#10;Site: www.minhaloja.com.br&#10;Endereço: Rua Exemplo, 123, Centro, Cidade - SP&#10;Email: contato@minhaloja.com.br&#10;Status: Novo&#10;Último Contato: 2023-05-15"></textarea>
             <button id="fillFormButton"
                     class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
                 Preencher Formulário
@@ -89,6 +89,11 @@
                         <option value="Perdido">Perdido</option>
                     </select>
                 </div>
+                <div>
+                    <label for="lastContactDate" class="block text-sm font-medium text-gray-700 mb-1">Data Último Contato:</label>
+                    <input type="date" id="lastContactDate"
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
+                </div>
                 <div class="md:col-span-2">
                     <label for="notes" class="block text-sm font-medium text-gray-700 mb-1">Observações:</label>
                     <textarea id="notes" rows="4"
@@ -104,6 +109,43 @@
 
         <div class="p-6 bg-white rounded-lg border border-gray-200">
             <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">Clientes Cadastrados</h2>
+
+            <div class="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200 flex flex-wrap items-end gap-4">
+                <div class="flex-1 min-w-[150px]">
+                    <label for="filterStatus" class="block text-sm font-medium text-gray-700 mb-1">Filtrar por Status:</label>
+                    <select id="filterStatus"
+                            class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
+                        <option value="">Todos</option>
+                        <option value="Novo">Novo</option>
+                        <option value="Em Andamento">Em Andamento</option>
+                        <option value="Aguardando Contato">Aguardando Contato</option>
+                        <option value="Fechado">Fechado</option>
+                        <option value="Perdido">Perdido</option>
+                    </select>
+                </div>
+                <div class="flex-1 min-w-[150px]">
+                    <label for="filterDateFrom" class="block text-sm font-medium text-gray-700 mb-1">Último Contato De:</label>
+                    <input type="date" id="filterDateFrom"
+                           class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
+                </div>
+                <div class="flex-1 min-w-[150px]">
+                    <label for="filterDateTo" class="block text-sm font-medium text-gray-700 mb-1">Último Contato Até:</label>
+                    <input type="date" id="filterDateTo"
+                           class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
+                </div>
+                <div class="flex-none">
+                    <button id="applyFiltersButton"
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out shadow-md">
+                        Aplicar Filtros
+                    </button>
+                </div>
+                <div class="flex-none">
+                    <button id="clearFiltersButton"
+                            class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out shadow-md">
+                        Limpar Filtros
+                    </button>
+                </div>
+            </div>
             <div class="mb-4 text-right flex justify-end space-x-2"> <button id="exportExcelButton"
                         class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out shadow-md">
                     Exportar para Excel
@@ -124,7 +166,7 @@
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Site</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Endereço</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider rounded-tr-lg">Observações</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Último Contato</th> <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider rounded-tr-lg">Observações</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200" id="clientTableBody">
@@ -175,7 +217,6 @@
         const loadingSpinner = document.getElementById('loadingSpinner'); // Spinner para Cadastrar
         const deleteLoadingSpinner = document.getElementById('deleteLoadingSpinner'); // Spinner para Excluir
 
-
         // Referências aos campos do formulário
         const companyNameField = document.getElementById('companyName');
         const phoneField = document.getElementById('phone');
@@ -183,7 +224,15 @@
         const websiteField = document.getElementById('website');
         const addressField = document.getElementById('address');
         const statusField = document.getElementById('status');
+        const lastContactDateField = document.getElementById('lastContactDate'); // Novo campo
         const notesField = document.getElementById('notes');
+
+        // Referências aos campos de filtro
+        const filterStatusField = document.getElementById('filterStatus');
+        const filterDateFromField = document.getElementById('filterDateFrom');
+        const filterDateToField = document.getElementById('filterDateTo');
+        const applyFiltersButton = document.getElementById('applyFiltersButton');
+        const clearFiltersButton = document.getElementById('clearFiltersButton');
 
         /**
          * Exibe uma mensagem na caixa de feedback do usuário.
@@ -216,6 +265,7 @@
             websiteField.value = '';
             addressField.value = '';
             statusField.value = 'Novo';
+            lastContactDateField.value = ''; // Limpa o novo campo de data
             notesField.value = '';
             selectedClientIdForDeletion = null; // Reseta o ID do cliente selecionado
         }
@@ -231,6 +281,12 @@
             websiteField.value = client.website || '';
             addressField.value = client.address || '';
             statusField.value = client.status || 'Novo';
+            // Converte o Timestamp do Firestore para o formato de data do input HTML
+            if (client.lastContactDate && client.lastContactDate.toDate) {
+                lastContactDateField.value = client.lastContactDate.toDate().toISOString().split('T')[0];
+            } else {
+                lastContactDateField.value = '';
+            }
             notesField.value = client.notes || '';
             selectedClientIdForDeletion = client.id; // Define o ID do cliente selecionado
         }
@@ -280,6 +336,11 @@
             } else {
                 data.status = 'Novo';
             }
+            // Regex para Data Último Contato (formato YYYY-MM-DD)
+            const lastContactDateMatch = rawText.match(/(?:Último Contato:|Data Contato:)\s*(\d{4}-\d{2}-\d{2})/i);
+            if (lastContactDateMatch) {
+                data.lastContactDate = lastContactDateMatch[1].trim();
+            }
             let notes = rawText;
             for (const key in data) {
                 if (data[key]) {
@@ -291,24 +352,46 @@
         }
 
         /**
-         * Carrega os clientes do Firestore e os renderiza na tabela.
+         * Carrega os clientes do Firestore e os renderiza na tabela, aplicando filtros.
          */
         async function loadClientsFromFirestore() {
             clients = []; // Limpa o array local antes de carregar
             try {
-                const clientsRef = db.collection("clientes");
-                // Ordena por data de criação para que os mais recentes apareçam no final
-                const snapshot = await clientsRef.orderBy('createdAt', 'asc').get(); 
+                let clientsRef = db.collection("clientes");
+
+                // Aplicar filtros
+                const filterStatus = filterStatusField.value;
+                const filterDateFrom = filterDateFromField.value;
+                const filterDateTo = filterDateToField.value;
+
+                if (filterStatus) {
+                    clientsRef = clientsRef.where('status', '==', filterStatus);
+                }
+
+                if (filterDateFrom) {
+                    // Firestore Timestamps são objetos Date. Converter string para Date.
+                    const dateFrom = new Date(filterDateFrom + 'T00:00:00'); // Garante que a data começa no início do dia
+                    clientsRef = clientsRef.where('lastContactDate', '>=', dateFrom);
+                }
+                if (filterDateTo) {
+                    const dateTo = new Date(filterDateTo + 'T23:59:59'); // Garante que a data termina no final do dia
+                    clientsRef = clientsRef.where('lastContactDate', '<=', dateTo);
+                }
+
+                // Ordenar por data de criação ou data de último contato
+                clientsRef = clientsRef.orderBy('createdAt', 'desc'); // Ordem padrão
+
+                const snapshot = await clientsRef.get();
 
                 snapshot.forEach(doc => {
                     const clientData = doc.data();
-                    clients.push({ id: doc.id, ...clientData }); // Adiciona o ID do documento para futura edição/deleção
+                    clients.push({ id: doc.id, ...clientData });
                 });
                 renderClientTable();
                 showMessage('Clientes carregados do Firestore com sucesso!', 'success');
             } catch (error) {
                 console.error("Erro ao carregar clientes do Firestore: ", error);
-                showMessage('Erro ao carregar clientes. Verifique as regras de segurança do Firestore.', 'error');
+                showMessage('Erro ao carregar clientes. Verifique as regras de segurança do Firestore e os índices do Firestore (se estiver usando filtros de data ou múltiplos filtros).', 'error');
             }
         }
 
@@ -318,15 +401,22 @@
         function renderClientTable() {
             clientTableBody.innerHTML = '';
             if (clients.length === 0) {
-                clientTableBody.innerHTML = `<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">Nenhum cliente cadastrado ainda.</td></tr>`;
+                clientTableBody.innerHTML = `<tr><td colspan="8" class="px-6 py-4 text-center text-gray-500">Nenhum cliente cadastrado ainda.</td></tr>`;
                 return;
             }
 
             clients.forEach((client, index) => {
                 const row = document.createElement('tr');
                 row.classList.add('hover:bg-gray-50', 'cursor-pointer', 'transition', 'duration-150', 'ease-in-out');
-                row.dataset.index = index; // Armazena o índice do cliente na linha para fácil acesso
-                row.dataset.id = client.id; // Armazena o ID do Firestore na linha
+                row.dataset.index = index;
+                row.dataset.id = client.id;
+
+                // Formata a data de último contato para exibição
+                let formattedLastContactDate = '';
+                if (client.lastContactDate && client.lastContactDate.toDate) {
+                    const date = client.lastContactDate.toDate();
+                    formattedLastContactDate = date.toLocaleDateString('pt-BR'); // Formato DD/MM/YYYY
+                }
 
                 row.innerHTML = `
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 rounded-bl-lg">${client.companyName || ''}</td>
@@ -335,7 +425,7 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${client.website || ''}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${client.address || ''}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${client.status || 'Novo'}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 rounded-br-lg">${client.notes || ''}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${formattedLastContactDate}</td> <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 rounded-br-lg">${client.notes || ''}</td>
                 `;
                 clientTableBody.appendChild(row);
             });
@@ -350,7 +440,7 @@
                 return;
             }
             const headers = [
-                "Nome da Empresa", "Telefone", "Email", "Site", "Endereço", "Status", "Observações"
+                "Nome da Empresa", "Telefone", "Email", "Site", "Endereço", "Status", "Último Contato", "Observações" // Atualizado cabeçalhos
             ];
             const data = clients.map(client => [
                 client.companyName,
@@ -359,6 +449,8 @@
                 client.website,
                 client.address,
                 client.status,
+                // Formata a data para o Excel
+                (client.lastContactDate && client.lastContactDate.toDate) ? client.lastContactDate.toDate().toLocaleDateString('pt-BR') : '',
                 client.notes
             ]);
             const wsData = [headers, ...data];
@@ -383,7 +475,7 @@
         });
 
         addClientButton.addEventListener('click', async () => {
-            const clientData = { // Renomeado para evitar conflito com 'client' de Firestore
+            const clientData = {
                 companyName: companyNameField.value.trim(),
                 phone: phoneField.value.trim(),
                 email: emailField.value.trim(),
@@ -391,8 +483,16 @@
                 address: addressField.value.trim(),
                 status: statusField.value,
                 notes: notesField.value.trim(),
-                createdAt: firebase.firestore.FieldValue.serverTimestamp() // Adiciona timestamp do servidor
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
             };
+
+            // Adiciona a data de último contato, convertendo para objeto Date se preenchida
+            if (lastContactDateField.value) {
+                clientData.lastContactDate = new Date(lastContactDateField.value + 'T00:00:00'); // Garante que é um objeto Date
+            } else {
+                clientData.lastContactDate = null; // Ou undefined, dependendo da preferência
+            }
+
 
             if (!clientData.companyName) {
                 showMessage('O nome da empresa é obrigatório para cadastrar o cliente.', 'error');
@@ -403,11 +503,9 @@
             loadingSpinner.classList.remove('hidden');
 
             try {
-                // Adiciona um novo documento à coleção "clientes" no Firestore
                 const docRef = await db.collection("clientes").add(clientData);
                 console.log("Documento escrito com ID: ", docRef.id);
                 
-                // Recarrega a tabela para exibir o cliente recém-adicionado
                 await loadClientsFromFirestore(); 
                 clearForm();
                 rawDataInput.value = '';
@@ -423,9 +521,9 @@
 
         clientTableBody.addEventListener('click', (event) => {
             const clickedRow = event.target.closest('tr');
-            if (clickedRow && clickedRow.dataset.id) { // Usar dataset.id para obter o ID do Firestore
+            if (clickedRow && clickedRow.dataset.id) {
                 const clientId = clickedRow.dataset.id;
-                const clientToEdit = clients.find(client => client.id === clientId); // Encontrar o cliente pelo ID
+                const clientToEdit = clients.find(client => client.id === clientId);
                 if (clientToEdit) {
                     fillForm(clientToEdit);
                     showMessage(`Dados de "${clientToEdit.companyName}" carregados para edição.`, 'info');
@@ -447,13 +545,11 @@
             deleteLoadingSpinner.classList.remove('hidden');
 
             try {
-                // Deleta o documento do Firestore usando o ID armazenado
                 await db.collection("clientes").doc(selectedClientIdForDeletion).delete();
                 console.log("Documento excluído com ID: ", selectedClientIdForDeletion);
 
-                // Recarrega a tabela para refletir a exclusão
                 await loadClientsFromFirestore();
-                clearForm(); // Limpa o formulário e reseta selectedClientIdForDeletion
+                clearForm();
                 showMessage('Cliente excluído com sucesso!', 'success');
             } catch (error) {
                 console.error('Erro ao excluir documento do Firestore:', error);
@@ -464,6 +560,15 @@
             }
         });
 
+        // Listeners para os botões de filtro
+        applyFiltersButton.addEventListener('click', loadClientsFromFirestore);
+        clearFiltersButton.addEventListener('click', () => {
+            filterStatusField.value = '';
+            filterDateFromField.value = '';
+            filterDateToField.value = '';
+            loadClientsFromFirestore(); // Recarrega sem filtros
+            showMessage('Filtros limpos!', 'info');
+        });
 
         // Renderiza a tabela inicial carregando os dados do Firestore
         document.addEventListener('DOMContentLoaded', loadClientsFromFirestore);
