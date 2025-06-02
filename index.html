@@ -9,6 +9,7 @@
 
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -31,11 +32,61 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        /* Estilos para esconder/mostrar seções */
+        .hidden-auth {
+            display: none;
+        }
+        .visible-auth {
+            display: flex; /* ou block, dependendo do layout desejado */
+        }
     </style>
 </head>
 <body class="p-4 bg-gray-50 min-h-screen flex items-center justify-center text-gray-900">
-    <div class="container mx-auto p-6 bg-white rounded-xl shadow-lg max-w-4xl w-full">
-        <h1 class="text-3xl font-bold text-center text-gray-800 mb-8">Cadastro de Clientes CRM</h1>
+    
+    <div id="loadingApp" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center text-white text-2xl z-50">
+        Carregando CRM...
+    </div>
+
+    <div id="loginSection" class="container mx-auto p-6 bg-white rounded-xl shadow-lg max-w-md w-full hidden-auth flex flex-col items-center space-y-6">
+        <img src="images/VIZIONE%20LOGO%20FUNDO%20BRANCO-01-01.png" alt="Logo da Empresa" class="w-32 h-32 rounded-lg mx-auto">
+        <h1 class="text-3xl font-bold text-gray-800 text-center">Login no CRM</h1>
+        
+        <div class="w-full">
+            <label for="loginEmail" class="block text-sm font-medium text-gray-700 mb-1">Email:</label>
+            <input type="email" id="loginEmail" placeholder="seu@email.com"
+                   class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
+        </div>
+        
+        <div class="w-full">
+            <label for="loginPassword" class="block text-sm font-medium text-gray-700 mb-1">Senha:</label>
+            <input type="password" id="loginPassword" placeholder="********"
+                   class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
+        </div>
+        
+        <button id="loginButton"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
+            Entrar
+            <span id="loginLoadingSpinner" class="loading-spinner hidden"></span>
+        </button>
+        
+        <p class="text-center text-gray-600 text-sm">
+            Não tem uma conta? Peça ao administrador para criar uma.
+        </p>
+        
+        <div id="loginMessageBox" class="hidden p-3 text-center text-sm rounded-lg" role="alert"></div>
+    </div>
+
+    <div id="crmApp" class="container mx-auto p-6 bg-white rounded-xl shadow-lg max-w-4xl w-full hidden-auth">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800">Cadastro de Clientes CRM</h1>
+            <div class="flex items-center space-x-2">
+                <span id="loggedInUserEmail" class="text-gray-700 text-sm"></span>
+                <button id="logoutButton"
+                        class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg text-sm transition duration-300 ease-in-out shadow-md">
+                    Sair
+                </button>
+            </div>
+        </div>
 
         <div class="mb-8 p-6 bg-white rounded-lg border border-gray-200">
             <label for="rawDataInput" class="block text-lg font-semibold text-gray-700 mb-3">
@@ -100,11 +151,20 @@
                               class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900"></textarea>
                 </div>
             </form>
-            <button id="addClientButton"
-                    class="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
-                Cadastrar Cliente
-                <span id="loadingSpinner" class="loading-spinner hidden"></span>
-            </button>
+            <div class="mt-6 flex justify-center space-x-4">
+                <button id="addClientButton"
+                        class="w-1/3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
+                    Cadastrar Cliente
+                    <span id="loadingSpinner" class="loading-spinner hidden"></span>
+                </button>
+                <button id="updateClientButton" class="w-1/3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md hidden">
+                    Atualizar Cadastro
+                    <span id="updateLoadingSpinner" class="loading-spinner hidden"></span>
+                </button>
+                <button id="cancelEditButton" class="w-auto bg-gray-400 hover:bg-gray-500 text-white font-bold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md hidden">
+                    Cancelar Edição
+                </button>
+            </div>
         </div>
 
         <div class="p-6 bg-white rounded-lg border border-gray-200">
@@ -146,7 +206,8 @@
                     </button>
                 </div>
             </div>
-            <div class="mb-4 text-right flex justify-end space-x-2"> <button id="exportExcelButton"
+            <div class="mb-4 text-right flex justify-end space-x-2">
+                <button id="exportExcelButton"
                         class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out shadow-md">
                     Exportar para Excel
                 </button>
@@ -166,7 +227,8 @@
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Site</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Endereço</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Último Contato</th> <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider rounded-tr-lg">Observações</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Último Contato</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider rounded-tr-lg">Observações</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200" id="clientTableBody">
@@ -189,33 +251,47 @@
         };
 
         // Inicialize o Firebase
-        // Verifique se o Firebase já foi inicializado para evitar erros
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
         } else {
-            firebase.app(); // Se já inicializado, apenas obtenha a instância padrão
+            firebase.app(); 
         }
         
-        // Obtenha uma referência para o Firestore
+        // Obtenha uma referência para o Firestore e Auth
         const db = firebase.firestore();
+        const auth = firebase.auth(); 
 
-        // Array para armazenar os clientes cadastrados (temporariamente para exibição local e exportação)
-        // Este array será preenchido com dados do Firestore ao carregar a página
         let clients = [];
-        // Variável para armazenar o ID do cliente selecionado para edição/exclusão
-        let selectedClientIdForDeletion = null; 
+        let editingClientId = null; 
 
-        // Referências aos elementos do DOM
+        // Referências a elementos de UI de Login/Logout
+        const loadingApp = document.getElementById('loadingApp');
+        const loginSection = document.getElementById('loginSection');
+        const crmApp = document.getElementById('crmApp');
+        const loginEmailField = document.getElementById('loginEmail');
+        const loginPasswordField = document.getElementById('loginPasswordField');
+        const loginButton = document.getElementById('loginButton');
+        const loginLoadingSpinner = document.getElementById('loginLoadingSpinner');
+        const loginMessageBox = document.getElementById('loginMessageBox');
+        const logoutButton = document.getElementById('logoutButton');
+        const loggedInUserEmailSpan = document.getElementById('loggedInUserEmail');
+
+
+        // Referências aos elementos do DOM do CRM (restante)
         const rawDataInput = document.getElementById('rawDataInput');
         const fillFormButton = document.getElementById('fillFormButton');
         const clientForm = document.getElementById('clientForm');
         const addClientButton = document.getElementById('addClientButton');
+        const updateClientButton = document.getElementById('updateClientButton');
+        const cancelEditButton = document.getElementById('cancelEditButton');
         const clientTableBody = document.getElementById('clientTableBody');
         const messageBox = document.getElementById('messageBox');
         const exportExcelButton = document.getElementById('exportExcelButton');
-        const deleteClientButton = document.getElementById('deleteClientButton'); // Novo botão de exclusão
-        const loadingSpinner = document.getElementById('loadingSpinner'); // Spinner para Cadastrar
-        const deleteLoadingSpinner = document.getElementById('deleteLoadingSpinner'); // Spinner para Excluir
+        const deleteClientButton = document.getElementById('deleteClientButton'); 
+        const loadingSpinner = document.getElementById('loadingSpinner'); 
+        const updateLoadingSpinner = document.getElementById('updateLoadingSpinner');
+        const deleteLoadingSpinner = document.getElementById('deleteLoadingSpinner');
+
 
         // Referências aos campos do formulário
         const companyNameField = document.getElementById('companyName');
@@ -224,7 +300,7 @@
         const websiteField = document.getElementById('website');
         const addressField = document.getElementById('address');
         const statusField = document.getElementById('status');
-        const lastContactDateField = document.getElementById('lastContactDate'); // Novo campo
+        const lastContactDateField = document.getElementById('lastContactDate');
         const notesField = document.getElementById('notes');
 
         // Referências aos campos de filtro
@@ -238,20 +314,21 @@
          * Exibe uma mensagem na caixa de feedback do usuário.
          * @param {string} message - A mensagem a ser exibida.
          * @param {string} type - O tipo da mensagem ('success', 'error', 'info').
+         * @param {HTMLElement} targetBox - A caixa de mensagem a ser usada (ex: messageBox, loginMessageBox).
          */
-        function showMessage(message, type) {
-            messageBox.textContent = message;
-            messageBox.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700', 'bg-yellow-100', 'text-yellow-700');
+        function showMessage(message, type, targetBox = messageBox) {
+            targetBox.textContent = message;
+            targetBox.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700', 'bg-yellow-100', 'text-yellow-700');
             if (type === 'success') {
-                messageBox.classList.add('bg-green-100', 'text-green-700');
+                targetBox.classList.add('bg-green-100', 'text-green-700');
             } else if (type === 'error') {
-                messageBox.classList.add('bg-red-100', 'text-red-700');
+                targetBox.classList.add('bg-red-100', 'text-red-700');
             } else {
-                messageBox.classList.add('bg-yellow-100', 'text-yellow-700');
+                targetBox.classList.add('bg-yellow-100', 'text-yellow-700');
             }
-            messageBox.classList.remove('hidden');
+            targetBox.classList.remove('hidden');
             setTimeout(() => {
-                messageBox.classList.add('hidden');
+                targetBox.classList.add('hidden');
             }, 3000);
         }
 
@@ -265,9 +342,13 @@
             websiteField.value = '';
             addressField.value = '';
             statusField.value = 'Novo';
-            lastContactDateField.value = ''; // Limpa o novo campo de data
+            lastContactDateField.value = '';
             notesField.value = '';
-            selectedClientIdForDeletion = null; // Reseta o ID do cliente selecionado
+            editingClientId = null; 
+            
+            addClientButton.classList.remove('hidden');
+            updateClientButton.classList.add('hidden');
+            cancelEditButton.classList.add('hidden');
         }
 
         /**
@@ -281,14 +362,17 @@
             websiteField.value = client.website || '';
             addressField.value = client.address || '';
             statusField.value = client.status || 'Novo';
-            // Converte o Timestamp do Firestore para o formato de data do input HTML
             if (client.lastContactDate && client.lastContactDate.toDate) {
                 lastContactDateField.value = client.lastContactDate.toDate().toISOString().split('T')[0];
             } else {
                 lastContactDateField.value = '';
             }
             notesField.value = client.notes || '';
-            selectedClientIdForDeletion = client.id; // Define o ID do cliente selecionado
+            editingClientId = client.id;
+
+            addClientButton.classList.add('hidden');
+            updateClientButton.classList.remove('hidden');
+            cancelEditButton.classList.remove('hidden');
         }
 
         /**
@@ -336,7 +420,6 @@
             } else {
                 data.status = 'Novo';
             }
-            // Regex para Data Último Contato (formato YYYY-MM-DD)
             const lastContactDateMatch = rawText.match(/(?:Último Contato:|Data Contato:)\s*(\d{4}-\d{2}-\d{2})/i);
             if (lastContactDateMatch) {
                 data.lastContactDate = lastContactDateMatch[1].trim();
@@ -355,11 +438,10 @@
          * Carrega os clientes do Firestore e os renderiza na tabela, aplicando filtros.
          */
         async function loadClientsFromFirestore() {
-            clients = []; // Limpa o array local antes de carregar
+            clients = []; 
             try {
                 let clientsRef = db.collection("clientes");
 
-                // Aplicar filtros
                 const filterStatus = filterStatusField.value;
                 const filterDateFrom = filterDateFromField.value;
                 const filterDateTo = filterDateToField.value;
@@ -369,17 +451,15 @@
                 }
 
                 if (filterDateFrom) {
-                    // Firestore Timestamps são objetos Date. Converter string para Date.
-                    const dateFrom = new Date(filterDateFrom + 'T00:00:00'); // Garante que a data começa no início do dia
+                    const dateFrom = new Date(filterDateFrom + 'T00:00:00'); 
                     clientsRef = clientsRef.where('lastContactDate', '>=', dateFrom);
                 }
                 if (filterDateTo) {
-                    const dateTo = new Date(filterDateTo + 'T23:59:59'); // Garante que a data termina no final do dia
+                    const dateTo = new Date(filterDateTo + 'T23:59:59'); 
                     clientsRef = clientsRef.where('lastContactDate', '<=', dateTo);
                 }
 
-                // Ordenar por data de criação ou data de último contato
-                clientsRef = clientsRef.orderBy('createdAt', 'desc'); // Ordem padrão
+                clientsRef = clientsRef.orderBy('createdAt', 'desc'); 
 
                 const snapshot = await clientsRef.get();
 
@@ -411,11 +491,10 @@
                 row.dataset.index = index;
                 row.dataset.id = client.id;
 
-                // Formata a data de último contato para exibição
                 let formattedLastContactDate = '';
                 if (client.lastContactDate && client.lastContactDate.toDate) {
                     const date = client.lastContactDate.toDate();
-                    formattedLastContactDate = date.toLocaleDateString('pt-BR'); // Formato DD/MM/YYYY
+                    formattedLastContactDate = date.toLocaleDateString('pt-BR');
                 }
 
                 row.innerHTML = `
@@ -440,7 +519,7 @@
                 return;
             }
             const headers = [
-                "Nome da Empresa", "Telefone", "Email", "Site", "Endereço", "Status", "Último Contato", "Observações" // Atualizado cabeçalhos
+                "Nome da Empresa", "Telefone", "Email", "Site", "Endereço", "Status", "Último Contato", "Observações"
             ];
             const data = clients.map(client => [
                 client.companyName,
@@ -449,7 +528,6 @@
                 client.website,
                 client.address,
                 client.status,
-                // Formata a data para o Excel
                 (client.lastContactDate && client.lastContactDate.toDate) ? client.lastContactDate.toDate().toLocaleDateString('pt-BR') : '',
                 client.notes
             ]);
@@ -486,11 +564,10 @@
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             };
 
-            // Adiciona a data de último contato, convertendo para objeto Date se preenchida
             if (lastContactDateField.value) {
-                clientData.lastContactDate = new Date(lastContactDateField.value + 'T00:00:00'); // Garante que é um objeto Date
+                clientData.lastContactDate = new Date(lastContactDateField.value + 'T00:00:00');
             } else {
-                clientData.lastContactDate = null; // Ou undefined, dependendo da preferência
+                clientData.lastContactDate = null;
             }
 
 
