@@ -104,10 +104,14 @@
 
         <div class="p-6 bg-white rounded-lg border border-gray-200">
             <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">Clientes Cadastrados</h2>
-            <div class="mb-4 text-right">
-                <button id="exportExcelButton"
+            <div class="mb-4 text-right flex justify-end space-x-2"> <button id="exportExcelButton"
                         class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out shadow-md">
                     Exportar para Excel
+                </button>
+                <button id="deleteClientButton"
+                        class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out shadow-md">
+                    Excluir Cliente
+                    <span id="deleteLoadingSpinner" class="loading-spinner hidden"></span>
                 </button>
             </div>
             <div class="overflow-x-auto rounded-lg shadow-md">
@@ -156,6 +160,8 @@
         // Array para armazenar os clientes cadastrados (temporariamente para exibição local e exportação)
         // Este array será preenchido com dados do Firestore ao carregar a página
         let clients = [];
+        // Variável para armazenar o ID do cliente selecionado para edição/exclusão
+        let selectedClientIdForDeletion = null; 
 
         // Referências aos elementos do DOM
         const rawDataInput = document.getElementById('rawDataInput');
@@ -165,7 +171,10 @@
         const clientTableBody = document.getElementById('clientTableBody');
         const messageBox = document.getElementById('messageBox');
         const exportExcelButton = document.getElementById('exportExcelButton');
-        const loadingSpinner = document.getElementById('loadingSpinner');
+        const deleteClientButton = document.getElementById('deleteClientButton'); // Novo botão de exclusão
+        const loadingSpinner = document.getElementById('loadingSpinner'); // Spinner para Cadastrar
+        const deleteLoadingSpinner = document.getElementById('deleteLoadingSpinner'); // Spinner para Excluir
+
 
         // Referências aos campos do formulário
         const companyNameField = document.getElementById('companyName');
@@ -198,7 +207,7 @@
         }
 
         /**
-         * Limpa todos os campos do formulário.
+         * Limpa todos os campos do formulário e reseta o ID do cliente selecionado.
          */
         function clearForm() {
             companyNameField.value = '';
@@ -208,10 +217,11 @@
             addressField.value = '';
             statusField.value = 'Novo';
             notesField.value = '';
+            selectedClientIdForDeletion = null; // Reseta o ID do cliente selecionado
         }
 
         /**
-         * Preenche o formulário com os dados de um objeto cliente.
+         * Preenche o formulário com os dados de um objeto cliente e define o ID selecionado.
          * @param {object} client - O objeto cliente contendo os dados.
          */
         function fillForm(client) {
@@ -222,6 +232,7 @@
             addressField.value = client.address || '';
             statusField.value = client.status || 'Novo';
             notesField.value = client.notes || '';
+            selectedClientIdForDeletion = client.id; // Define o ID do cliente selecionado
         }
 
         /**
@@ -286,7 +297,8 @@
             clients = []; // Limpa o array local antes de carregar
             try {
                 const clientsRef = db.collection("clientes");
-                const snapshot = await clientsRef.get(); // Obtém todos os documentos da coleção "clientes"
+                // Ordena por data de criação para que os mais recentes apareçam no final
+                const snapshot = await clientsRef.orderBy('createdAt', 'asc').get(); 
 
                 snapshot.forEach(doc => {
                     const clientData = doc.data();
@@ -420,6 +432,38 @@
                 }
             }
         });
+
+        // Listener para o novo botão de exportar
+        exportExcelButton.addEventListener('click', exportToExcel);
+
+        // Listener para o novo botão de excluir
+        deleteClientButton.addEventListener('click', async () => {
+            if (!selectedClientIdForDeletion) {
+                showMessage('Selecione um cliente na tabela primeiro para excluí-lo.', 'info');
+                return;
+            }
+
+            deleteClientButton.disabled = true;
+            deleteLoadingSpinner.classList.remove('hidden');
+
+            try {
+                // Deleta o documento do Firestore usando o ID armazenado
+                await db.collection("clientes").doc(selectedClientIdForDeletion).delete();
+                console.log("Documento excluído com ID: ", selectedClientIdForDeletion);
+
+                // Recarrega a tabela para refletir a exclusão
+                await loadClientsFromFirestore();
+                clearForm(); // Limpa o formulário e reseta selectedClientIdForDeletion
+                showMessage('Cliente excluído com sucesso!', 'success');
+            } catch (error) {
+                console.error('Erro ao excluir documento do Firestore:', error);
+                showMessage(`Erro ao excluir cliente: ${error.message}. Verifique as regras de segurança do Firestore.`, 'error');
+            } finally {
+                deleteClientButton.disabled = false;
+                deleteLoadingSpinner.classList.add('hidden');
+            }
+        });
+
 
         // Renderiza a tabela inicial carregando os dados do Firestore
         document.addEventListener('DOMContentLoaded', loadClientsFromFirestore);
