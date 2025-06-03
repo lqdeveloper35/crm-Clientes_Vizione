@@ -12,20 +12,51 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f8fafc; /* bg-gray-50, similar ao Google Ads */
+            background-color: #f3f4f6; /* bg-gray-100 */
             color: #1f2937; /* Texto cinza escuro padrão */
+            margin: 0; /* Reset margin for full width */
+        }
+        #crmApp {
+            max-width: none !important; /* Override max-w */
+            width: 100% !important; /* Ensure full width */
+            margin: 0 auto; /* Center if needed */
+            padding: 1rem; /* Add some padding around the app */
+        }
+        @media (min-width: 640px) { /* sm */
+            #crmApp {
+                padding: 2rem;
+            }
+        }
+        @media (min-width: 768px) { /* md */
+            #crmApp {
+                padding: 3rem;
+            }
+        }
+        /* Estilo para a coluna fixa */
+        #clientTable th:first-child,
+        #clientTable td:first-child {
+            position: sticky;
+            left: 0;
+            background-color: inherit; /* Ensures the fixed column background is visible */
+            z-index: 1; /* Ensure it's above other cells during scroll */
+            border-right: 1px solid #e5e7eb; /* Optional: Add a separator line */
+        }
+        /* Adjust padding for visual alignment with the fixed column */
+        #clientTable th:not(:first-child),
+        #clientTable td:not(:first-child) {
+            padding-left: 1rem; /* Adjust as needed */
         }
         /* Estilo para o spinner de carregamento */
         .loading-spinner {
             border: 4px solid rgba(255, 255, 255, 0.3);
             border-top: 4px solid #ffffff;
             border-radius: 50%;
-            width: 24px;
-            height: 24px;
+            width: 20px;
+            height: 20px;
             animation: spin 1s linear infinite;
             display: inline-block;
             vertical-align: middle;
-            margin-left: 10px;
+            margin-left: 5px;
         }
         @keyframes spin {
             0% { transform: rotate(0deg); }
@@ -46,7 +77,7 @@
             padding: 4px;
             border: 1px solid #ccc;
             border-radius: 4px;
-            font-size: 0.875rem; /* text-sm */
+            font-size: 0.75rem; /* text-sm */
             background-color: #f0f4f8; /* Um cinza claro para destacar */
         }
         .quick-edit-btn {
@@ -55,7 +86,7 @@
             padding: 4px 8px;
             border: none; /* Remove borda padrão */
             border-radius: 4px;
-            font-size: 0.75rem; /* text-xs */
+            font-size: 0.625rem; /* text-xs */
             cursor: pointer;
             flex-shrink: 0; /* Não encolhe o botão */
         }
@@ -77,56 +108,56 @@
         }
     </style>
 </head>
-<body class="p-4 bg-gray-50 min-h-screen flex items-center justify-center text-gray-900">
+<body class="bg-gray-100 min-h-screen">
     
-    <div id="crmApp" class="container mx-auto p-6 bg-white rounded-xl shadow-lg max-w-4xl w-full">
-        <h1 class="text-3xl font-bold text-center text-gray-800 mb-8">Cadastro de Clientes CRM</h1>
+    <div id="crmApp" class="bg-white rounded-xl shadow-lg">
+        <h1 class="text-2xl md:text-3xl font-bold text-center text-gray-800 py-6">Cadastro de Clientes CRM</h1>
 
-        <div class="mb-8 p-6 bg-white rounded-lg border border-gray-200">
+        <div class="mb-6 p-4 md:p-6 bg-white rounded-lg border border-gray-200">
             <label for="rawDataInput" class="block text-lg font-semibold text-gray-700 mb-3">
                 Cole os dados do Google Meu Negócio aqui:
             </label>
-            <textarea id="rawDataInput" rows="8"
-                      class="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 placeholder-gray-400"
+            <textarea id="rawDataInput" rows="6" md:rows="8"
+                      class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 placeholder-gray-400"
                       placeholder="Ex: Nome da Empresa: Minha Loja Ltda.&#10;Telefone: (11) 98765-4321&#10;Site: www.minhaloja.com.br&#10;Endereço: Rua Exemplo, 123, Centro, Cidade - SP&#10;Email: contato@minhaloja.com.br&#10;Status: Novo&#10;Último Contato: 2023-05-15"></textarea>
             <button id="fillFormButton"
-                    class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
+                    class="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
                 Preencher Formulário
             </button>
         </div>
 
-        <div id="clientDetailsContainer" class="mb-8 p-6 bg-white rounded-xl border border-gray-200">
-            <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Detalhes do Cliente</h2>
-            <form id="clientForm" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div id="clientDetailsContainer" class="mb-6 p-4 md:p-6 bg-white rounded-xl border border-gray-200">
+            <h2 class="text-xl md:text-2xl font-bold text-center text-gray-800 mb-4 md:mb-6">Detalhes do Cliente</h2>
+            <form id="clientForm" class="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
                 <div>
                     <label for="companyName" class="block text-sm font-medium text-gray-700 mb-1">Nome da Empresa:</label>
                     <input type="text" id="companyName"
-                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
+                           class="w-full p-2 md:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
                 </div>
                 <div>
                     <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">Telefone:</label>
                     <input type="text" id="phone"
-                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
+                           class="w-full p-2 md:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
                 </div>
                 <div>
                     <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email:</label>
                     <input type="email" id="email"
-                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
+                           class="w-full p-2 md:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
                 </div>
                 <div>
                     <label for="website" class="block text-sm font-medium text-gray-700 mb-1">Site:</label>
                     <input type="url" id="website"
-                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
+                           class="w-full p-2 md:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
                 </div>
                 <div class="md:col-span-2">
                     <label for="address" class="block text-sm font-medium text-gray-700 mb-1">Endereço:</label>
                     <input type="text" id="address"
-                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
+                           class="w-full p-2 md:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
                 </div>
                 <div>
                     <label for="status" class="block text-sm font-medium text-gray-700 mb-1">Status:</label>
                     <select id="status"
-                            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
+                            class="w-full p-2 md:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
                         <option value="Novo">Novo</option>
                         <option value="Em Andamento">Em Andamento</option>
                         <option value="Aguardando Contato">Aguardando Contato</option>
@@ -137,35 +168,36 @@
                 <div>
                     <label for="lastContactDate" class="block text-sm font-medium text-gray-700 mb-1">Data Último Contato:</label>
                     <input type="date" id="lastContactDate"
-                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
+                           class="w-full p-2 md:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
                 </div>
                 <div class="md:col-span-2">
                     <label for="notes" class="block text-sm font-medium text-gray-700 mb-1">Observações:</label>
-                    <textarea id="notes" rows="4"
-                              class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900"></textarea>
+                    <textarea id="notes" rows="3" md:rows="4"
+                              class="w-full p-2 md:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900"></textarea>
                 </div>
             </form>
-            <div class="mt-6 flex justify-center space-x-4">
+            <div class="mt-4 md:mt-6 flex justify-center space-x-2 md:space-x-4">
                 <button id="addClientButton"
-                        class="w-1/3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
-                    Cadastrar Cliente
+                        class="w-1/2 md:w-1/3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md flex items-center justify-center">
+                    Cadastrar
                     <span id="loadingSpinner" class="loading-spinner hidden"></span>
                 </button>
-                <button id="updateClientButton" 
-                        class="w-1/3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md" disabled> Atualizar Cadastro
+                <button id="updateClientButton"
+                        class="w-1/2 md:w-1/3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md flex items-center justify-center" disabled>
+                    Atualizar
                     <span id="updateLoadingSpinner" class="loading-spinner hidden"></span>
                 </button>
-                <button id="cancelEditButton" 
-                        class="w-auto bg-gray-400 hover:bg-gray-500 text-white font-bold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
-                    Cancelar Edição
+                <button id="cancelEditButton"
+                        class="w-full md:w-auto bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
+                    Cancelar
                 </button>
             </div>
         </div>
 
-        <div class="p-6 bg-white rounded-lg border border-gray-200">
-            <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Clientes Cadastrados</h2>
+        <div class="p-4 md:p-6 bg-white rounded-lg border border-gray-200">
+            <h2 class="text-xl md:text-2xl font-bold text-center text-gray-800 mb-4 md:mb-6">Clientes Cadastrados</h2>
 
-            <div class="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200 flex flex-wrap items-end gap-4">
+            <div class="mb-4 p-3 md:p-4 bg-gray-50 rounded-lg border border-gray-200 flex flex-wrap items-end gap-2 md:gap-4">
                 <div class="flex-1 min-w-[150px]">
                     <label for="filterStatus" class="block text-sm font-medium text-gray-700 mb-1">Filtrar por Status:</label>
                     <select id="filterStatus"
@@ -188,39 +220,39 @@
                     <input type="date" id="filterDateTo"
                            class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
                 </div>
-                <div class="flex-none">
+                <div class="flex-none mt-2 md:mt-0">
                     <button id="applyFiltersButton"
-                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out shadow-md">
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-lg transition duration-300 ease-in-out shadow-md text-sm">
                         Aplicar Filtros
                     </button>
                 </div>
-                <div class="flex-none">
+                <div class="flex-none mt-2 md:mt-0">
                     <button id="clearFiltersButton"
-                            class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out shadow-md">
+                            class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-3 rounded-lg transition duration-300 ease-in-out shadow-md text-sm">
                         Limpar Filtros
                     </button>
                 </div>
             </div>
             <div class="mb-4">
-                <label for="generalSearchInput" class="block text-lg font-semibold text-gray-700 mb-3">Pesquisa Geral:</label>
-                <div class="flex gap-4">
+                <label for="generalSearchInput" class="block text-lg font-semibold text-gray-700 mb-2">Pesquisa Geral:</label>
+                <div class="flex gap-2 md:gap-4">
                     <input type="text" id="generalSearchInput" placeholder="Pesquisar por nome, telefone, email, etc."
-                           class="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
+                           class="flex-1 p-2 md:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 text-sm">
                     <button id="searchButton"
-                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out shadow-md">
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-lg transition duration-300 ease-in-out shadow-md text-sm">
                         Pesquisar
                     </button>
                 </div>
             </div>
 
-            <div class="mb-4 text-right flex justify-end space-x-2">
+            <div class="mb-3 md:mb-4 text-right flex justify-end space-x-2">
                 <button id="exportExcelButton"
-                        class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out shadow-md">
-                    Exportar para Excel
+                        class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-lg transition duration-300 ease-in-out shadow-md text-sm">
+                    Exportar Excel
                 </button>
                 <button id="deleteClientButton"
-                        class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out shadow-md" disabled>
-                    Excluir Cliente
+                        class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-lg transition duration-300 ease-in-out shadow-md text-sm flex items-center justify-center" disabled>
+                    Excluir
                     <span id="deleteLoadingSpinner" class="loading-spinner hidden"></span>
                 </button>
             </div>
@@ -228,31 +260,31 @@
                 <table id="clientTable" class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-100">
                         <tr>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider rounded-tl-lg">Nome da Empresa</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Telefone</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Email</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Site</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Endereço</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Último Contato</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider rounded-tr-lg">Observações</th>
+                            <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider rounded-tl-lg">Nome da Empresa</th>
+                            <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Telefone</th>
+                            <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Email</th>
+                            <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Site</th>
+                            <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Endereço</th>
+                            <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
+                            <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Último Contato</th>
+                            <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider rounded-tr-lg">Observações</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200" id="clientTableBody">
                         </tbody>
                 </table>
             </div>
-            <div class="flex justify-center mt-4 space-x-4">
+            <div class="flex justify-center mt-3 md:mt-4 space-x-2 md:space-x-4">
                 <button id="prevPageButton"
-                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out shadow-md" disabled>
-                    Página Anterior
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-lg transition duration-300 ease-in-out shadow-md text-sm" disabled>
+                    Anterior
                 </button>
                 <button id="nextPageButton"
-                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out shadow-md" disabled>
-                    Próxima Página
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-lg transition duration-300 ease-in-out shadow-md text-sm" disabled>
+                    Próxima
                 </button>
             </div>
-            <div id="messageBox" class="hidden mt-4 p-3 text-center text-sm rounded-lg" role="alert"></div>
+            <div id="messageBox" class="hidden mt-2 md:mt-4 p-3 text-center text-sm rounded-lg" role="alert"></div>
         </div>
     </div>
 
@@ -280,7 +312,6 @@
         let firstVisibleDoc = null; // Primeiro documento da página atual para 'prev'
         let paginationHistory = []; // Histórico de documentos de início de página
         let currentPage = 0; // Índice da página atual (0-based)
-
 
         let editingClientId = null; 
 
@@ -429,84 +460,74 @@
 
         async function loadClientsFromFirestore(direction = 'current') {
             let scrollPosition = clientTableBody.parentElement.scrollTop;
-            clients = []; 
+            clients = [];
             try {
                 let clientsRef = db.collection("clientes");
 
                 const filterStatus = filterStatusField.value;
                 const filterDateFrom = filterDateFromField.value;
                 const filterDateTo = filterDateToField.value;
-                const generalSearchTerm = generalSearchInput.value.trim().toLowerCase(); 
+                const generalSearchTerm = generalSearchInput.value.trim().toLowerCase();
 
-                // Aplicar filtros do Firestore
                 if (filterStatus) {
                     clientsRef = clientsRef.where('status', '==', filterStatus);
                 }
                 if (filterDateFrom) {
-                    const dateFrom = new Date(filterDateFrom + 'T00:00:00'); 
+                    const dateFrom = new Date(filterDateFrom + 'T00:00:00');
                     clientsRef = clientsRef.where('lastContactDate', '>=', dateFrom);
                 }
                 if (filterDateTo) {
-                    const dateTo = new Date(filterDateTo + 'T23:59:59'); 
+                    const dateTo = new Date(filterDateTo + 'T23:59:59');
                     clientsRef = clientsRef.where('lastContactDate', '<=', dateTo);
                 }
 
-                // Definir ordenação para a consulta do Firestore
                 if (filterDateFrom || filterDateTo) {
-                    clientsRef = clientsRef.orderBy('lastContactDate', 'asc'); 
-                    clientsRef = clientsRef.orderBy('createdAt', 'desc');     
+                    clientsRef = clientsRef.orderBy('lastContactDate', 'asc');
+                    clientsRef = clientsRef.orderBy('createdAt', 'desc');
                 } else {
-                    clientsRef = clientsRef.orderBy('createdAt', 'desc'); 
+                    clientsRef = clientsRef.orderBy('createdAt', 'desc');
                 }
 
                 // Lógica de Paginação do Firestore
-                let query;
+                let queryToExecute;
                 if (direction === 'next' && lastVisibleDoc) {
-                    query = clientsRef.startAfter(lastVisibleDoc).limit(CLIENTES_POR_PAGINA);
+                    queryToExecute = clientsRef.startAfter(lastVisibleDoc).limit(CLIENTES_POR_PAGINA);
                 } else if (direction === 'prev' && firstVisibleDoc && paginationHistory.length > 1) {
-                    // Remove o último doc de início da história (que é a página atual)
-                    paginationHistory.pop(); 
-                    // Pega o doc de início da página anterior
-                    const prevStartDoc = paginationHistory[paginationHistory.length - 1];
-                    query = clientsRef.startAt(prevStartDoc).limit(CLIENTES_POR_PAGINA);
+                    paginationHistory.pop(); // Remove o doc da página atual
+                    const prevStartDoc = paginationHistory[paginationHistory.length - 1]; // Pega o doc de início da página anterior
+                    queryToExecute = clientsRef.startAt(prevStartDoc).limit(CLIENTES_POR_PAGINA);
                 } else {
-                    // Primeira carga ou reset de filtros
                     paginationHistory = []; // Limpa histórico
-                    query = clientsRef.limit(CLIENTES_POR_PAGINA);
+                    queryToExecute = clientsRef.limit(CLIENTES_POR_PAGINA);
                 }
                 
-                const querySnapshot = await query.get();
+                const querySnapshot = await queryToExecute.get();
 
-                // Extrair clientes e salvar referências de documentos
                 let fetchedClients = [];
                 querySnapshot.forEach(doc => {
-                    fetchedClients.push({ id: doc.id, ...doc.data(), docRef: doc }); // Guarda a referência do documento
+                    fetchedClients.push({ id: doc.id, ...doc.data(), docRef: doc });
                 });
 
-                // Atualizar lastVisibleDoc e firstVisibleDoc
                 if (fetchedClients.length > 0) {
                     firstVisibleDoc = fetchedClients[0].docRef;
                     lastVisibleDoc = fetchedClients[fetchedClients.length - 1].docRef;
-                    if (direction !== 'prev' && direction !== 'next') { // Se for a primeira carga ou reset, adiciona ao histórico
+                    if (direction === 'current' || direction === 'next') {
+                        // Adiciona ao histórico apenas se for a primeira carga ou avançando
                         paginationHistory.push(firstVisibleDoc);
-                    } else if (direction === 'next') { // Se for next, adiciona o novo lastVisibleDoc ao histórico
-                        paginationHistory.push(firstVisibleDoc); // Adiciona o primeiro doc da página atual como início da próxima
                     }
                 } else {
                     firstVisibleDoc = null;
                     lastVisibleDoc = null;
                 }
 
-
-                // Filtragem Geral no lado do cliente (para o campo de pesquisa geral)
                 let clientsToRender = []; 
                 if (generalSearchTerm) {
                     fetchedClients.forEach(clientData => {
                         // Converte Timestamps para objetos Date para facilitar a formatação na busca
-                        if (clientData.createdAt && clientData.createdAt.toDate) {
+                        if (clientData.createdAt && typeof clientData.createdAt.toDate === 'function') {
                             clientData.createdAt = clientData.createdAt.toDate();
                         }
-                        if (clientData.lastContactDate && clientData.lastContactDate.toDate) {
+                        if (clientData.lastContactDate && typeof clientData.lastContactDate.toDate === 'function') {
                             clientData.lastContactDate = clientData.lastContactDate.toDate();
                         }
                         
@@ -520,7 +541,7 @@
                             clientData.status 
                         ].filter(Boolean).map(field => String(field).toLowerCase()); 
 
-                        const formattedDateText = (clientData.lastContactDate) ? clientData.lastContactDate.toLocaleDateString('pt-BR').toLowerCase() : '';
+                        const formattedDateText = (clientData.lastContactDate instanceof Date) ? clientData.lastContactDate.toLocaleDateString('pt-BR').toLowerCase() : '';
                         searchableFields.push(formattedDateText);
 
                         if (searchableFields.some(field => field.includes(generalSearchTerm))) {
@@ -528,7 +549,7 @@
                         }
                     });
                 } else {
-                    clientsToRender = fetchedClients; // Se não há termo de pesquisa geral, usa os clientes do Firestore
+                    clientsToRender = fetchedClients; 
                 }
 
                 clients = clientsToRender; 
@@ -545,7 +566,7 @@
         function renderClientTable() {
             clientTableBody.innerHTML = '';
             if (clients.length === 0) {
-                clientTableBody.innerHTML = `<tr><td colspan="8" class="px-6 py-4 text-center text-gray-500">Nenhum cliente cadastrado ainda.</td></tr>`;
+                clientTableBody.innerHTML = `<tr><td colspan="8" class="px-3 md:px-6 py-2 md:py-4 text-center text-gray-500">Nenhum cliente cadastrado ainda.</td></tr>`;
                 return;
             }
 
@@ -563,21 +584,20 @@
                     formattedLastContactDate = client.lastContactDate.toDate().toLocaleDateString('pt-BR');
                 } else if (typeof client.lastContactDate === 'string') {
                     const date = new Date(client.lastContactDate);
-                    if (!isNaN(date.getTime())) {
+                    if (!isNaN(date.getTime())) { // Verifica se a string é uma data válida
                         formattedLastContactDate = date.toLocaleDateString('pt-BR');
                     }
                 }
-                // Fim da verificação robusta
 
                 row.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 rounded-bl-lg">${client.companyName || ''}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${client.phone || ''}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${client.email || ''}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${client.website || ''}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${client.address || ''}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 quick-edit-status" data-field="status" data-value="${client.status || 'Novo'}">${client.status || 'Novo'}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 quick-edit-date" data-field="lastContactDate" data-value="${client.lastContactDate ? (client.lastContactDate instanceof Date ? client.lastContactDate.toISOString().split('T')[0] : (typeof client.lastContactDate.toDate === 'function' ? client.lastContactDate.toDate().toISOString().split('T')[0] : '')) : ''}">${formattedLastContactDate}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 rounded-br-lg">${client.notes || ''}</td>
+                    <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm font-medium text-gray-900 rounded-bl-lg">${client.companyName || ''}</td>
+                    <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700">${client.phone || ''}</td>
+                    <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700">${client.email || ''}</td>
+                    <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700">${client.website || ''}</td>
+                    <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700">${client.address || ''}</td>
+                    <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700 quick-edit-status" data-field="status" data-value="${client.status || 'Novo'}">${client.status || 'Novo'}</td>
+                    <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700 quick-edit-date" data-field="lastContactDate" data-value="${client.lastContactDate ? (client.lastContactDate instanceof Date ? client.lastContactDate.toISOString().split('T')[0] : (typeof client.lastContactDate.toDate === 'function' ? client.lastContactDate.toDate().toISOString().split('T')[0] : '')) : ''}">${formattedLastContactDate}</td>
+                    <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700 rounded-br-lg">${client.notes || ''}</td>
                 `;
                 clientTableBody.appendChild(row);
             });
@@ -928,14 +948,12 @@
         function updatePaginationButtons() {
             prevPageButton.disabled = (currentPage === 0);
 
-            // A lógica para 'nextPageButton' precisa de uma consulta extra para saber se há mais documentos
-            // Para evitar uma consulta extra a cada render, vamos desabilitar se a página atual não tiver o número máximo
-            // ou se a quantidade de clientes carregados for menor que o limite (indicando que é a última página)
+            // Para saber se há uma próxima página, precisamos buscar um documento a mais
+            // ou ter a contagem total de documentos que correspondem aos filtros.
+            // Para manter a simplicidade, vamos desabilitar 'Próxima' se a página atual não tiver o número máximo de clientes.
+            // Isso pode significar que o botão 'Próxima' ficará desabilitado prematuramente se a última página tiver menos de CLIENTES_POR_PAGINA.
+            // Uma solução mais robusta envolve uma contagem separada ou buscar um item a mais.
             nextPageButton.disabled = (clients.length < CLIENTES_POR_PAGINA);
-            
-            // Para uma paginação mais precisa, precisaríamos de uma contagem total de documentos filtrados
-            // ou buscar um documento a mais para saber se há uma próxima página.
-            // Por enquanto, esta lógica simples funciona se a última página tiver menos que CLIENTES_POR_PAGINA
         }
 
         document.addEventListener('DOMContentLoaded', loadClientsFromFirestore);
