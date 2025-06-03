@@ -35,6 +35,15 @@
         .edit-mode-border {
             border: 2px solid #3b82f6; /* Borda azul para indicar modo de edição */
         }
+        /* Estilos para a barra de mensagens fixa */
+        #messageBox {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000; /* Garante que fique acima de outros elementos */
+            max-width: 300px; /* Limita a largura para não ocupar muito espaço */
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
     </style>
 </head>
 <body class="p-4 bg-gray-50 min-h-screen flex items-center justify-center text-gray-900">
