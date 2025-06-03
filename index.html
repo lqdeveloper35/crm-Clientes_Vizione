@@ -409,11 +409,12 @@
                     clientsRef = clientsRef.where('lastContactDate', '<=', dateTo);
                 }
 
-                // --- CORREÇÃO DO ERRO DE ORDENAÇÃO DO FIRESTORE ---
-                // Se houver filtro de data (desigualdade), o primeiro orderBy DEVE ser no campo da data.
+                // --- CORREÇÃO FINAL DO ERRO DE ORDENAÇÃO DO FIRESTORE ---
+                // Se houver filtro de data (desigualdade), o primeiro orderBy DEVE ser 'lastContactDate' (para coincidir com a regra do Firestore).
+                // E a direção deve ser 'asc' (Crescente) para coincidir com o índice que você já tem criado para 'lastContactDate'.
                 if (filterDateFrom || filterDateTo) {
-                    clientsRef = clientsRef.orderBy('lastContactDate', 'asc'); // Prioriza a ordenação pela data de contato (ASC para coincidir com índice)
-                    clientsRef = clientsRef.orderBy('createdAt', 'desc'); // Depois ordena pela data de criação
+                    clientsRef = clientsRef.orderBy('lastContactDate', 'asc'); // Prioriza a ordenação pela data de contato (Crescente, como no seu índice)
+                    clientsRef = clientsRef.orderBy('createdAt', 'desc');     // Depois ordena pela data de criação
                 } else {
                     // Se não houver filtro de data, ordena apenas pela data de criação
                     clientsRef = clientsRef.orderBy('createdAt', 'desc'); 
@@ -502,22 +503,17 @@
         // --- Listeners de Eventos ---
 
         fillFormButton.addEventListener('click', () => {
-            console.log("Fill Form button clicked.");
             const rawText = rawDataInput.value;
             if (rawText.trim() === '') {
                 showMessage('Cole os dados brutos para preencher o formulário.', 'info');
                 return;
             }
             const parsedData = parseRawData(rawText);
-            clearForm(); // Limpa antes de preencher para garantir estado limpo
             fillForm(parsedData);
             showMessage('Formulário preenchido com sucesso!', 'success');
         });
 
         addClientButton.addEventListener('click', async () => {
-            console.log("Cadastrar Cliente button clicked. editingClientId:", editingClientId);
-            // Este botão SEMPRE cadastra um NOVO cliente. Não há mais o if de modo de edição aqui.
-            
             const clientData = {
                 companyName: companyNameField.value.trim(),
                 phone: phoneField.value.trim(),
@@ -532,7 +528,7 @@
             if (lastContactDateField.value) {
                 clientData.lastContactDate = new Date(lastContactDateField.value + 'T00:00:00');
             } else {
-                clientData.lastContactDate = null;
+                clientData.lastContactDate = firebase.firestore.FieldValue.serverTimestamp(); // Default to current time if empty
             }
 
 
@@ -545,11 +541,50 @@
             loadingSpinner.classList.remove('hidden');
 
             try {
+                // --- INÍCIO DA VERIFICAÇÃO DE DUPLICIDADE ---
+                let isDuplicate = false;
+
+                // Query 1: Verificar por Nome da Empresa
+                const companyNameQuery = db.collection("clientes").where("companyName", "==", clientData.companyName);
+                const companyNameSnapshot = await companyNameQuery.get();
+                if (!companyNameSnapshot.empty) {
+                    isDuplicate = true;
+                    console.log("Duplicate found by company name.");
+                }
+
+                // Query 2: Verificar por Telefone (se o campo não estiver vazio)
+                if (!isDuplicate && clientData.phone) {
+                    const phoneQuery = db.collection("clientes").where("phone", "==", clientData.phone);
+                    const phoneSnapshot = await phoneQuery.get();
+                    if (!phoneSnapshot.empty) {
+                        isDuplicate = true;
+                        console.log("Duplicate found by phone number.");
+                    }
+                }
+
+                // Query 3: Verificar por Email (se o campo não estiver vazio)
+                if (!isDuplicate && clientData.email) {
+                    const emailQuery = db.collection("clientes").where("email", "==", clientData.email);
+                    const emailSnapshot = await emailQuery.get();
+                    if (!emailSnapshot.empty) {
+                        isDuplicate = true;
+                        console.log("Duplicate found by email.");
+                    }
+                }
+
+                if (isDuplicate) {
+                    showMessage('Cliente já cadastrado na base de dados (Nome da Empresa, Telefone ou Email duplicado).', 'info');
+                    addClientButton.disabled = false;
+                    loadingSpinner.classList.add('hidden');
+                    return; // Sai da função sem cadastrar
+                }
+                // --- FIM DA VERIFICAÇÃO DE DUPLICIDADE ---
+
                 const docRef = await db.collection("clientes").add(clientData);
                 console.log("Documento escrito com ID: ", docRef.id);
                 
                 await loadClientsFromFirestore(); 
-                clearForm(); // Limpa o formulário após o cadastro
+                clearForm();
                 rawDataInput.value = '';
                 showMessage('Cliente cadastrado e salvo no Firestore com sucesso!', 'success');
             } catch (error) {
@@ -562,9 +597,8 @@
         });
 
         updateClientButton.addEventListener('click', async () => {
-            console.log("Atualizar Cadastro button clicked. editingClientId:", editingClientId);
-            if (!editingClientId) { // Só atualiza se um cliente estiver selecionado
-                showMessage('Nenhum cliente selecionado para atualizar. Selecione um cliente na tabela primeiro.', 'info');
+            if (!editingClientId) {
+                showMessage('Nenhum cliente selecionado para atualizar.', 'info');
                 return;
             }
 
@@ -582,7 +616,7 @@
             if (lastContactDateField.value) {
                 updatedClientData.lastContactDate = new Date(lastContactDateField.value + 'T00:00:00');
             } else {
-                updatedClientData.lastContactDate = null;
+                updatedClientData.lastContactDate = firebase.firestore.FieldValue.serverTimestamp(); // Default to current time if empty
             }
 
             if (!updatedClientData.companyName) {
@@ -598,7 +632,7 @@
                 console.log("Documento atualizado com ID: ", editingClientId);
 
                 await loadClientsFromFirestore();
-                clearForm(); // Limpa o formulário após a atualização
+                clearForm();
                 showMessage('Cliente atualizado no Firestore com sucesso!', 'success');
             } catch (error) {
                 console.error('Erro ao atualizar documento no Firestore:', error);
@@ -611,7 +645,7 @@
 
         cancelEditButton.addEventListener('click', () => {
             console.log("Cancelar Edição button clicked.");
-            clearForm(); // Limpa o formulário e reseta o modo de edição
+            clearForm();
             showMessage('Edição cancelada. Formulário limpo.', 'info');
         });
 
@@ -622,7 +656,7 @@
                 console.log("Client row clicked. ID:", clientId);
                 const clientToEdit = clients.find(client => client.id === clientId);
                 if (clientToEdit) {
-                    fillForm(clientToEdit); // Preenche o formulário e define editingClientId
+                    fillForm(clientToEdit);
                     showMessage(`Dados de "${clientToEdit.companyName}" carregados para edição.`, 'info');
                 }
             }
@@ -667,11 +701,7 @@
         });
 
         // Renderiza a tabela inicial carregando os dados do Firestore
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log("DOM Content Loaded. Initializing CRM.");
-            clearForm(); // Garante que o formulário está limpo e o botão "Cadastrar" visível
-            loadClientsFromFirestore();
-        });
+        document.addEventListener('DOMContentLoaded', loadClientsFromFirestore);
     </script>
 </body>
 </html>
