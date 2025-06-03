@@ -35,14 +35,32 @@
         .edit-mode-border {
             border: 2px solid #3b82f6; /* Borda azul para indicar modo de edição */
         }
-        /* Estilos para a barra de mensagens fixa */
-        #messageBox {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 1000; /* Garante que fique acima de outros elementos */
-            max-width: 300px; /* Limita a largura para não ocupar muito espaço */
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        /* Estilos para campos de edição rápida na tabela */
+        .quick-edit-container {
+            display: flex;
+            align-items: center;
+            gap: 4px; /* Espaçamento entre o input e o botão */
+        }
+        .quick-edit-input {
+            width: calc(100% - 40px); /* Ajusta largura para o botão */
+            padding: 4px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 0.875rem; /* text-sm */
+            background-color: #f0f4f8; /* Um cinza claro para destacar */
+        }
+        .quick-edit-btn {
+            background-color: #10b981; /* Verde */
+            color: white;
+            padding: 4px 8px;
+            border: none; /* Remove borda padrão */
+            border-radius: 4px;
+            font-size: 0.75rem; /* text-xs */
+            cursor: pointer;
+            flex-shrink: 0; /* Não encolhe o botão */
+        }
+        .quick-edit-btn:hover {
+            background-color: #059669; /* Verde mais escuro */
         }
     </style>
 </head>
@@ -121,7 +139,8 @@
                     <span id="loadingSpinner" class="loading-spinner hidden"></span>
                 </button>
                 <button id="updateClientButton" 
-                        class="w-1/3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md" disabled> Atualizar Cadastro
+                        class="w-1/3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md" disabled>
+                    Atualizar Cadastro
                     <span id="updateLoadingSpinner" class="loading-spinner hidden"></span>
                 </button>
                 <button id="cancelEditButton" 
@@ -132,7 +151,7 @@
         </div>
 
         <div class="p-6 bg-white rounded-lg border border-gray-200">
-            <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">Clientes Cadastrados</h2>
+            <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Clientes Cadastrados</h2>
 
             <div class="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200 flex flex-wrap items-end gap-4">
                 <div class="flex-1 min-w-[150px]">
@@ -170,13 +189,26 @@
                     </button>
                 </div>
             </div>
+            <div class="mb-4">
+                <label for="generalSearchInput" class="block text-lg font-semibold text-gray-700 mb-3">Pesquisa Geral:</label>
+                <div class="flex gap-4">
+                    <input type="text" id="generalSearchInput" placeholder="Pesquisar por nome, telefone, email, etc."
+                           class="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
+                    <button id="searchButton"
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out shadow-md">
+                        Pesquisar
+                    </button>
+                </div>
+            </div>
+
             <div class="mb-4 text-right flex justify-end space-x-2">
                 <button id="exportExcelButton"
                         class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out shadow-md">
                     Exportar para Excel
                 </button>
                 <button id="deleteClientButton"
-                        class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out shadow-md" disabled> Excluir Cliente
+                        class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out shadow-md" disabled>
+                    Excluir Cliente
                     <span id="deleteLoadingSpinner" class="loading-spinner hidden"></span>
                 </button>
             </div>
@@ -261,6 +293,9 @@
         const filterDateToField = document.getElementById('filterDateTo');
         const applyFiltersButton = document.getElementById('applyFiltersButton');
         const clearFiltersButton = document.getElementById('clearFiltersButton');
+        const generalSearchInput = document.getElementById('generalSearchInput'); 
+        const searchButton = document.getElementById('searchButton'); 
+
 
         /**
          * Exibe uma mensagem na caixa de feedback do usuário.
@@ -299,9 +334,8 @@
             notesField.value = '';
             editingClientId = null; 
             
-            // Habilita o botão Atualizar/Excluir e remove a borda de edição
-            updateClientButton.disabled = true; // Desabilita Atualizar quando o form está limpo
-            deleteClientButton.disabled = true; // Desabilita Excluir quando o form está limpo
+            updateClientButton.disabled = true; 
+            deleteClientButton.disabled = true; 
             clientDetailsContainer.classList.remove('edit-mode-border');
             console.log("Buttons state reset (Atualizar/Excluir desabilitados).");
         }
@@ -324,11 +358,10 @@
                 lastContactDateField.value = '';
             }
             notesField.value = client.notes || '';
-            editingClientId = client.id; // Define o ID do cliente em edição
+            editingClientId = client.id; 
 
-            // Habilita os botões Atualizar/Excluir e adiciona a borda de edição
-            updateClientButton.disabled = false; // Habilita Atualizar quando um cliente é selecionado
-            deleteClientButton.disabled = false; // Habilita Excluir quando um cliente é selecionado
+            updateClientButton.disabled = false; 
+            deleteClientButton.disabled = false; 
             clientDetailsContainer.classList.add('edit-mode-border');
             console.log("Buttons state set for editing (Atualizar/Excluir habilitados).");
         }
@@ -393,14 +426,16 @@
         }
 
         /**
-         * Carrega os clientes do Firestore e os renderiza na tabela, aplicando filtros.
+         * Carrega os clientes do Firestore e os renderiza na tabela, aplicando filtros e pesquisa.
          */
         async function loadClientsFromFirestore() {
             console.log("loadClientsFromFirestore called.");
+            let scrollPosition = clientTableBody.parentElement.scrollTop; // Salva a posição de rolagem
             clients = []; 
             try {
                 let clientsRef = db.collection("clientes");
 
+                // Filtros de Status e Data (aplicados no Firestore)
                 const filterStatus = filterStatusField.value;
                 const filterDateFrom = filterDateFromField.value;
                 const filterDateTo = filterDateToField.value;
@@ -418,26 +453,52 @@
                     clientsRef = clientsRef.where('lastContactDate', '<=', dateTo);
                 }
 
-                // --- CORREÇÃO FINAL DO ERRO DE ORDENAÇÃO DO FIRESTORE ---
-                // Se houver filtro de data (desigualdade), o primeiro orderBy DEVE ser 'lastContactDate' (para coincidir com a regra do Firestore).
-                // E a direção deve ser 'asc' (Crescente) para coincidir com o índice que você já tem criado para 'lastContactDate'.
                 if (filterDateFrom || filterDateTo) {
-                    clientsRef = clientsRef.orderBy('lastContactDate', 'asc'); // Prioriza a ordenação pela data de contato (Crescente, como no seu índice)
-                    clientsRef = clientsRef.orderBy('createdAt', 'desc');     // Depois ordena pela data de criação
+                    clientsRef = clientsRef.orderBy('lastContactDate', 'asc'); 
+                    clientsRef = clientsRef.orderBy('createdAt', 'desc');     
                 } else {
-                    // Se não houver filtro de data, ordena apenas pela data de criação
                     clientsRef = clientsRef.orderBy('createdAt', 'desc'); 
                 }
-                // --- FIM DA CORREÇÃO ---
 
                 const snapshot = await clientsRef.get();
 
+                let clientsToRender = []; 
+                const generalSearchTerm = generalSearchInput.value.trim().toLowerCase(); 
+
                 snapshot.forEach(doc => {
                     const clientData = doc.data();
-                    clients.push({ id: doc.id, ...clientData });
+                    if (clientData.createdAt && clientData.createdAt.toDate) {
+                        clientData.createdAt = clientData.createdAt.toDate();
+                    }
+                    if (clientData.lastContactDate && clientData.lastContactDate.toDate) {
+                        clientData.lastContactDate = clientData.lastContactDate.toDate();
+                    }
+                    clientsToRender.push({ id: doc.id, ...clientData });
                 });
+
+                if (generalSearchTerm) {
+                    clientsToRender = clientsToRender.filter(client => {
+                        const searchableFields = [
+                            client.companyName,
+                            client.phone,
+                            client.email,
+                            client.website,
+                            client.address,
+                            client.notes,
+                            client.status 
+                        ].filter(Boolean).map(field => String(field).toLowerCase()); 
+
+                        const formattedDateText = (client.lastContactDate) ? client.lastContactDate.toLocaleDateString('pt-BR').toLowerCase() : '';
+                        searchableFields.push(formattedDateText);
+
+                        return searchableFields.some(field => field.includes(generalSearchTerm));
+                    });
+                }
+                
+                clients = clientsToRender; 
                 renderClientTable();
-                showMessage('Clientes carregados do Firestore com sucesso!', 'success');
+                clientTableBody.parentElement.scrollTop = scrollPosition; // Restaura a posição de rolagem
+                showMessage('Clientes carregados e filtrados/pesquisados com sucesso!', 'success');
             } catch (error) {
                 console.error("Erro ao carregar clientes do Firestore: ", error);
                 showMessage('Erro ao carregar clientes. Verifique as regras de segurança do Firestore e os índices do Firestore (se estiver usando filtros de data ou múltiplos filtros).', 'error');
@@ -462,9 +523,8 @@
                 row.dataset.id = client.id;
 
                 let formattedLastContactDate = '';
-                if (client.lastContactDate && client.lastContactDate.toDate) {
-                    const date = client.lastContactDate.toDate();
-                    formattedLastContactDate = date.toLocaleDateString('pt-BR');
+                if (client.lastContactDate) { 
+                    formattedLastContactDate = client.lastContactDate.toLocaleDateString('pt-BR');
                 }
 
                 row.innerHTML = `
@@ -473,8 +533,9 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${client.email || ''}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${client.website || ''}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${client.address || ''}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${client.status || 'Novo'}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${formattedLastContactDate}</td> <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 rounded-br-lg">${client.notes || ''}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 quick-edit-status" data-field="status" data-value="${client.status || 'Novo'}">${client.status || 'Novo'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 quick-edit-date" data-field="lastContactDate" data-value="${client.lastContactDate ? client.lastContactDate.toISOString().split('T')[0] : ''}">${formattedLastContactDate}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 rounded-br-lg">${client.notes || ''}</td>
                 `;
                 clientTableBody.appendChild(row);
             });
@@ -498,7 +559,7 @@
                 client.website,
                 client.address,
                 client.status,
-                (client.lastContactDate && client.lastContactDate.toDate) ? client.lastContactDate.toDate().toLocaleDateString('pt-BR') : '',
+                (client.lastContactDate) ? client.lastContactDate.toLocaleDateString('pt-BR') : '', 
                 client.notes
             ]);
             const wsData = [headers, ...data];
@@ -518,6 +579,7 @@
                 return;
             }
             const parsedData = parseRawData(rawText);
+            clearForm(); 
             fillForm(parsedData);
             showMessage('Formulário preenchido com sucesso!', 'success');
         });
@@ -537,7 +599,7 @@
             if (lastContactDateField.value) {
                 clientData.lastContactDate = new Date(lastContactDateField.value + 'T00:00:00');
             } else {
-                clientData.lastContactDate = firebase.firestore.FieldValue.serverTimestamp(); // Default to current time if empty
+                clientData.lastContactDate = firebase.firestore.FieldValue.serverTimestamp(); 
             }
 
 
@@ -550,34 +612,27 @@
             loadingSpinner.classList.remove('hidden');
 
             try {
-                // --- INÍCIO DA VERIFICAÇÃO DE DUPLICIDADE ---
                 let isDuplicate = false;
 
-                // Query 1: Verificar por Nome da Empresa
                 const companyNameQuery = db.collection("clientes").where("companyName", "==", clientData.companyName);
                 const companyNameSnapshot = await companyNameQuery.get();
                 if (!companyNameSnapshot.empty) {
                     isDuplicate = true;
-                    console.log("Duplicate found by company name.");
                 }
 
-                // Query 2: Verificar por Telefone (se o campo não estiver vazio)
                 if (!isDuplicate && clientData.phone) {
                     const phoneQuery = db.collection("clientes").where("phone", "==", clientData.phone);
                     const phoneSnapshot = await phoneQuery.get();
                     if (!phoneSnapshot.empty) {
                         isDuplicate = true;
-                        console.log("Duplicate found by phone number.");
                     }
                 }
 
-                // Query 3: Verificar por Email (se o campo não estiver vazio)
                 if (!isDuplicate && clientData.email) {
                     const emailQuery = db.collection("clientes").where("email", "==", clientData.email);
                     const emailSnapshot = await emailQuery.get();
                     if (!emailSnapshot.empty) {
                         isDuplicate = true;
-                        console.log("Duplicate found by email.");
                     }
                 }
 
@@ -585,9 +640,8 @@
                     showMessage('Cliente já cadastrado na base de dados (Nome da Empresa, Telefone ou Email duplicado).', 'info');
                     addClientButton.disabled = false;
                     loadingSpinner.classList.add('hidden');
-                    return; // Sai da função sem cadastrar
+                    return; 
                 }
-                // --- FIM DA VERIFICAÇÃO DE DUPLICIDADE ---
 
                 const docRef = await db.collection("clientes").add(clientData);
                 console.log("Documento escrito com ID: ", docRef.id);
@@ -625,7 +679,7 @@
             if (lastContactDateField.value) {
                 updatedClientData.lastContactDate = new Date(lastContactDateField.value + 'T00:00:00');
             } else {
-                updatedClientData.lastContactDate = firebase.firestore.FieldValue.serverTimestamp(); // Default to current time if empty
+                updatedClientData.lastContactDate = firebase.firestore.FieldValue.serverTimestamp(); 
             }
 
             if (!updatedClientData.companyName) {
@@ -658,23 +712,140 @@
             showMessage('Edição cancelada. Formulário limpo.', 'info');
         });
 
+        // --- Lógica para Edição Rápida na Tabela e Preenchimento do Formulário Principal ---
         clientTableBody.addEventListener('click', (event) => {
-            const clickedRow = event.target.closest('tr');
-            if (clickedRow && clickedRow.dataset.id) {
-                const clientId = clickedRow.dataset.id;
-                console.log("Client row clicked. ID:", clientId);
-                const clientToEdit = clients.find(client => client.id === clientId);
-                if (clientToEdit) {
-                    fillForm(clientToEdit);
-                    showMessage(`Dados de "${clientToEdit.companyName}" carregados para edição.`, 'info');
+            const clickedCell = event.target.closest('td');
+            const row = clickedCell ? clickedCell.closest('tr') : null;
+
+            if (!row) return; // Se não clicou em uma linha válida, sai
+
+            const clientId = row.dataset.id;
+            const field = clickedCell ? clickedCell.dataset.field : null; // 'status' ou 'lastContactDate'
+            const clientData = clients.find(c => c.id === clientId);
+
+            if (!clientData) return; // Cliente não encontrado na lista local
+
+            // Se o clique foi em uma célula de edição rápida (Status ou Último Contato)
+            if (clickedCell && (clickedCell.classList.contains('quick-edit-status') || clickedCell.classList.contains('quick-edit-date'))) {
+                event.stopPropagation(); // IMPEDE que o clique na célula acione o fillForm da linha
+
+                // Se já estiver em modo de edição rápida nesta célula, não faz nada
+                if (clickedCell.querySelector('.quick-edit-input')) {
+                    return;
                 }
+
+                const originalCellContent = clickedCell.innerHTML; // Salva o conteúdo original da célula
+
+                let inputElement;
+                let saveButton = document.createElement('button');
+                saveButton.classList.add('quick-edit-btn');
+                saveButton.textContent = 'Salvar';
+
+                let cancelButton = document.createElement('button');
+                cancelButton.classList.add('quick-edit-btn');
+                cancelButton.style.backgroundColor = '#ef4444'; // Cor vermelha para cancelar
+                cancelButton.textContent = 'X';
+
+                let containerDiv = document.createElement('div');
+                containerDiv.classList.add('quick-edit-container');
+
+                if (clickedCell.classList.contains('quick-edit-status')) {
+                    inputElement = document.createElement('select');
+                    inputElement.classList.add('quick-edit-input');
+                    inputElement.innerHTML = `
+                        <option value="Novo">Novo</option>
+                        <option value="Em Andamento">Em Andamento</option>
+                        <option value="Aguardando Contato">Aguardando Contato</option>
+                        <option value="Fechado">Fechado</option>
+                        <option value="Perdido">Perdido</option>
+                    `;
+                    inputElement.value = clientData.status || 'Novo';
+                } else if (clickedCell.classList.contains('quick-edit-date')) {
+                    inputElement = document.createElement('input');
+                    inputElement.type = 'date';
+                    inputElement.classList.add('quick-edit-input');
+                    if (clientData.lastContactDate && clientData.lastContactDate.toISOString) {
+                        inputElement.value = clientData.lastContactDate.toISOString().split('T')[0];
+                    } else {
+                        inputElement.value = '';
+                    }
+                }
+
+                containerDiv.appendChild(inputElement);
+                containerDiv.appendChild(saveButton);
+                containerDiv.appendChild(cancelButton);
+
+                clickedCell.innerHTML = ''; // Limpa o conteúdo original da célula
+                clickedCell.appendChild(containerDiv); // Adiciona o campo de edição e botões
+                inputElement.focus();
+
+                // Listener para o botão Salvar da edição rápida
+                saveButton.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    await updateQuickEditField(clientId, field, inputElement.value);
+                });
+
+                // Listener para o botão Cancelar da edição rápida
+                cancelButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    clickedCell.innerHTML = originalCellContent; // Reverte o conteúdo da célula
+                });
+
+                // Listener para salvar ao pressionar ENTER
+                inputElement.addEventListener('keydown', async (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        await updateQuickEditField(clientId, field, inputElement.value);
+                    } else if (e.key === 'Escape') { // Reverter ao pressionar ESC
+                        e.preventDefault();
+                        clickedCell.innerHTML = originalCellContent;
+                    }
+                });
+
+                // Listener para reverter ao perder o foco (se não foi salvo)
+                inputElement.addEventListener('blur', () => {
+                    // Verifica se o input ainda está na célula (ou seja, não foi salvo pelo botão Salvar)
+                    if (clickedCell.contains(inputElement) && !clickedCell.querySelector('.save-quick-edit-btn')) {
+                        clickedCell.innerHTML = originalCellContent;
+                    }
+                });
+
+            } else {
+                // Se não foi uma célula de edição rápida, aciona a lógica de preencher o formulário principal
+                fillForm(clientData);
+                showMessage(`Dados de "${clientData.companyName}" carregados para edição.`, 'info');
             }
         });
+
+        // Função para atualizar um campo específico no Firestore via edição rápida
+        async function updateQuickEditField(clientId, field, newValue) {
+            let initialScrollTop = clientTableBody.parentElement.scrollTop; // Salva a posição de rolagem antes da atualização
+            try {
+                let updateData = {};
+                if (field === 'lastContactDate') {
+                    updateData[field] = newValue ? new Date(newValue + 'T00:00:00') : firebase.firestore.FieldValue.serverTimestamp();
+                } else {
+                    updateData[field] = newValue;
+                }
+                updateData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+
+                await db.collection("clientes").doc(clientId).update(updateData);
+                showMessage('Campo atualizado com sucesso!', 'success');
+                await loadClientsFromFirestore(); // Recarrega a tabela para mostrar o valor atualizado e reverter a célula
+                clientTableBody.parentElement.scrollTop = initialScrollTop; // Restaura a posição de rolagem
+            } catch (error) {
+                console.error(`Erro ao atualizar campo ${field} no Firestore:`, error);
+                showMessage(`Erro ao atualizar campo: ${error.message}`, 'error');
+                await loadClientsFromFirestore(); // Recarrega para reverter visualmente em caso de erro
+                clientTableBody.parentElement.scrollTop = initialScrollTop; // Tenta restaurar mesmo em erro
+            }
+        }
+        // --- FIM: Lógica para Edição Rápida na Tabela ---
+
 
         exportExcelButton.addEventListener('click', exportToExcel);
 
         deleteClientButton.addEventListener('click', async () => {
-            console.log("Excluir Cliente button clicked. editingClientId:", editingClientId);
             if (!editingClientId) {
                 showMessage('Selecione um cliente na tabela primeiro para excluí-lo.', 'info');
                 return;
@@ -701,15 +872,16 @@
 
         applyFiltersButton.addEventListener('click', loadClientsFromFirestore);
         clearFiltersButton.addEventListener('click', () => {
-            console.log("Clear Filters button clicked.");
             filterStatusField.value = '';
             filterDateFromField.value = '';
             filterDateToField.value = '';
+            generalSearchInput.value = ''; 
             loadClientsFromFirestore(); 
             showMessage('Filtros limpos!', 'info');
         });
 
-        // Renderiza a tabela inicial carregando os dados do Firestore
+        searchButton.addEventListener('click', loadClientsFromFirestore);
+
         document.addEventListener('DOMContentLoaded', loadClientsFromFirestore);
     </script>
 </body>
