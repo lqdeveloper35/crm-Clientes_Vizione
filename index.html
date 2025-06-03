@@ -35,6 +35,33 @@
         .edit-mode-border {
             border: 2px solid #3b82f6; /* Borda azul para indicar modo de edição */
         }
+        /* Estilos para campos de edição rápida na tabela */
+        .quick-edit-container {
+            display: flex;
+            align-items: center;
+            gap: 4px; /* Espaçamento entre o input e o botão */
+        }
+        .quick-edit-input {
+            width: calc(100% - 40px); /* Ajusta largura para o botão */
+            padding: 4px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 0.875rem; /* text-sm */
+            background-color: #f0f4f8; /* Um cinza claro para destacar */
+        }
+        .quick-edit-btn {
+            background-color: #10b981; /* Verde */
+            color: white;
+            padding: 4px 8px;
+            border: none; /* Remove borda padrão */
+            border-radius: 4px;
+            font-size: 0.75rem; /* text-xs */
+            cursor: pointer;
+            flex-shrink: 0; /* Não encolhe o botão */
+        }
+        .quick-edit-btn:hover {
+            background-color: #059669; /* Verde mais escuro */
+        }
         /* Estilos para a barra de mensagens fixa */
         #messageBox {
             position: fixed !important; /* Força a posição fixa */
@@ -215,6 +242,16 @@
                         </tbody>
                 </table>
             </div>
+            <div class="flex justify-center mt-4 space-x-4">
+                <button id="prevPageButton"
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out shadow-md" disabled>
+                    Página Anterior
+                </button>
+                <button id="nextPageButton"
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out shadow-md" disabled>
+                    Próxima Página
+                </button>
+            </div>
             <div id="messageBox" class="hidden mt-4 p-3 text-center text-sm rounded-lg" role="alert"></div>
         </div>
     </div>
@@ -237,7 +274,14 @@
         
         const db = firebase.firestore();
 
-        let clients = [];
+        const CLIENTES_POR_PAGINA = 10; // Define quantos clientes por página
+        let clients = []; // Clientes atualmente exibidos na tabela (apenas da página atual)
+        let lastVisibleDoc = null; // Último documento da página atual para 'next'
+        let firstVisibleDoc = null; // Primeiro documento da página atual para 'prev'
+        let paginationHistory = []; // Histórico de documentos de início de página
+        let currentPage = 0; // Índice da página atual (0-based)
+
+
         let editingClientId = null; 
 
         const rawDataInput = document.getElementById('rawDataInput');
@@ -256,6 +300,7 @@
 
         const clientDetailsContainer = document.getElementById('clientDetailsContainer');
 
+
         const companyNameField = document.getElementById('companyName');
         const phoneField = document.getElementById('phone');
         const emailField = document.getElementById('email');
@@ -272,6 +317,9 @@
         const clearFiltersButton = document.getElementById('clearFiltersButton');
         const generalSearchInput = document.getElementById('generalSearchInput'); 
         const searchButton = document.getElementById('searchButton'); 
+        const prevPageButton = document.getElementById('prevPageButton'); 
+        const nextPageButton = document.getElementById('nextPageButton'); 
+
 
         function showMessage(message, type, targetBox = messageBox) {
             targetBox.textContent = message;
@@ -379,7 +427,7 @@
             return data;
         }
 
-        async function loadClientsFromFirestore() {
+        async function loadClientsFromFirestore(direction = 'current') {
             let scrollPosition = clientTableBody.parentElement.scrollTop;
             clients = []; 
             try {
@@ -388,11 +436,12 @@
                 const filterStatus = filterStatusField.value;
                 const filterDateFrom = filterDateFromField.value;
                 const filterDateTo = filterDateToField.value;
+                const generalSearchTerm = generalSearchInput.value.trim().toLowerCase(); 
 
+                // Aplicar filtros do Firestore
                 if (filterStatus) {
                     clientsRef = clientsRef.where('status', '==', filterStatus);
                 }
-
                 if (filterDateFrom) {
                     const dateFrom = new Date(filterDateFrom + 'T00:00:00'); 
                     clientsRef = clientsRef.where('lastContactDate', '>=', dateFrom);
@@ -402,6 +451,7 @@
                     clientsRef = clientsRef.where('lastContactDate', '<=', dateTo);
                 }
 
+                // Definir ordenação para a consulta do Firestore
                 if (filterDateFrom || filterDateTo) {
                     clientsRef = clientsRef.orderBy('lastContactDate', 'asc'); 
                     clientsRef = clientsRef.orderBy('createdAt', 'desc');     
@@ -409,43 +459,81 @@
                     clientsRef = clientsRef.orderBy('createdAt', 'desc'); 
                 }
 
-                const snapshot = await clientsRef.get();
-
-                let clientsToRender = []; 
-                const generalSearchTerm = generalSearchInput.value.trim().toLowerCase(); 
-
-                snapshot.forEach(doc => {
-                    const clientData = doc.data();
-                    if (clientData.createdAt && clientData.createdAt.toDate) {
-                        clientData.createdAt = clientData.createdAt.toDate();
-                    }
-                    if (clientData.lastContactDate && clientData.lastContactDate.toDate) {
-                        clientData.lastContactDate = clientData.lastContactDate.toDate();
-                    }
-                    clientsToRender.push({ id: doc.id, ...clientData });
-                });
-
-                if (generalSearchTerm) {
-                    clientsToRender = clientsToRender.filter(client => {
-                        const searchableFields = [
-                            client.companyName,
-                            client.phone,
-                            client.email,
-                            client.website,
-                            client.address,
-                            client.notes,
-                            client.status 
-                        ].filter(Boolean).map(field => String(field).toLowerCase()); 
-
-                        const formattedDateText = (client.lastContactDate) ? client.lastContactDate.toLocaleDateString('pt-BR').toLowerCase() : '';
-                        searchableFields.push(formattedDateText);
-
-                        return searchableFields.some(field => field.includes(generalSearchTerm));
-                    });
+                // Lógica de Paginação do Firestore
+                let query;
+                if (direction === 'next' && lastVisibleDoc) {
+                    query = clientsRef.startAfter(lastVisibleDoc).limit(CLIENTES_POR_PAGINA);
+                } else if (direction === 'prev' && firstVisibleDoc && paginationHistory.length > 1) {
+                    // Remove o último doc de início da história (que é a página atual)
+                    paginationHistory.pop(); 
+                    // Pega o doc de início da página anterior
+                    const prevStartDoc = paginationHistory[paginationHistory.length - 1];
+                    query = clientsRef.startAt(prevStartDoc).limit(CLIENTES_POR_PAGINA);
+                } else {
+                    // Primeira carga ou reset de filtros
+                    paginationHistory = []; // Limpa histórico
+                    query = clientsRef.limit(CLIENTES_POR_PAGINA);
                 }
                 
+                const querySnapshot = await query.get();
+
+                // Extrair clientes e salvar referências de documentos
+                let fetchedClients = [];
+                querySnapshot.forEach(doc => {
+                    fetchedClients.push({ id: doc.id, ...doc.data(), docRef: doc }); // Guarda a referência do documento
+                });
+
+                // Atualizar lastVisibleDoc e firstVisibleDoc
+                if (fetchedClients.length > 0) {
+                    firstVisibleDoc = fetchedClients[0].docRef;
+                    lastVisibleDoc = fetchedClients[fetchedClients.length - 1].docRef;
+                    if (direction !== 'prev' && direction !== 'next') { // Se for a primeira carga ou reset, adiciona ao histórico
+                        paginationHistory.push(firstVisibleDoc);
+                    } else if (direction === 'next') { // Se for next, adiciona o novo lastVisibleDoc ao histórico
+                        paginationHistory.push(firstVisibleDoc); // Adiciona o primeiro doc da página atual como início da próxima
+                    }
+                } else {
+                    firstVisibleDoc = null;
+                    lastVisibleDoc = null;
+                }
+
+
+                // Filtragem Geral no lado do cliente (para o campo de pesquisa geral)
+                let clientsToRender = []; 
+                if (generalSearchTerm) {
+                    fetchedClients.forEach(clientData => {
+                        // Converte Timestamps para objetos Date para facilitar a formatação na busca
+                        if (clientData.createdAt && clientData.createdAt.toDate) {
+                            clientData.createdAt = clientData.createdAt.toDate();
+                        }
+                        if (clientData.lastContactDate && clientData.lastContactDate.toDate) {
+                            clientData.lastContactDate = clientData.lastContactDate.toDate();
+                        }
+                        
+                        const searchableFields = [
+                            clientData.companyName,
+                            clientData.phone,
+                            clientData.email,
+                            clientData.website,
+                            clientData.address,
+                            clientData.notes,
+                            clientData.status 
+                        ].filter(Boolean).map(field => String(field).toLowerCase()); 
+
+                        const formattedDateText = (clientData.lastContactDate) ? clientData.lastContactDate.toLocaleDateString('pt-BR').toLowerCase() : '';
+                        searchableFields.push(formattedDateText);
+
+                        if (searchableFields.some(field => field.includes(generalSearchTerm))) {
+                            clientsToRender.push(clientData);
+                        }
+                    });
+                } else {
+                    clientsToRender = fetchedClients; // Se não há termo de pesquisa geral, usa os clientes do Firestore
+                }
+
                 clients = clientsToRender; 
                 renderClientTable();
+                updatePaginationButtons(); 
                 clientTableBody.parentElement.scrollTop = scrollPosition; 
                 showMessage('Clientes carregados e filtrados/pesquisados com sucesso!', 'success');
             } catch (error) {
@@ -468,9 +556,18 @@
                 row.dataset.id = client.id;
 
                 let formattedLastContactDate = '';
-                if (client.lastContactDate) { 
+                // Verificação robusta para lastContactDate
+                if (client.lastContactDate instanceof Date) {
                     formattedLastContactDate = client.lastContactDate.toLocaleDateString('pt-BR');
+                } else if (client.lastContactDate && typeof client.lastContactDate.toDate === 'function') {
+                    formattedLastContactDate = client.lastContactDate.toDate().toLocaleDateString('pt-BR');
+                } else if (typeof client.lastContactDate === 'string') {
+                    const date = new Date(client.lastContactDate);
+                    if (!isNaN(date.getTime())) {
+                        formattedLastContactDate = date.toLocaleDateString('pt-BR');
+                    }
                 }
+                // Fim da verificação robusta
 
                 row.innerHTML = `
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 rounded-bl-lg">${client.companyName || ''}</td>
@@ -479,7 +576,7 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${client.website || ''}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${client.address || ''}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 quick-edit-status" data-field="status" data-value="${client.status || 'Novo'}">${client.status || 'Novo'}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 quick-edit-date" data-field="lastContactDate" data-value="${client.lastContactDate ? client.lastContactDate.toISOString().split('T')[0] : ''}">${formattedLastContactDate}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 quick-edit-date" data-field="lastContactDate" data-value="${client.lastContactDate ? (client.lastContactDate instanceof Date ? client.lastContactDate.toISOString().split('T')[0] : (typeof client.lastContactDate.toDate === 'function' ? client.lastContactDate.toDate().toISOString().split('T')[0] : '')) : ''}">${formattedLastContactDate}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 rounded-br-lg">${client.notes || ''}</td>
                 `;
                 clientTableBody.appendChild(row);
@@ -501,7 +598,7 @@
                 client.website,
                 client.address,
                 client.status,
-                (client.lastContactDate) ? client.lastContactDate.toLocaleDateString('pt-BR') : '', 
+                (client.lastContactDate && (client.lastContactDate instanceof Date || typeof client.lastContactDate.toDate === 'function')) ? (client.lastContactDate instanceof Date ? client.lastContactDate.toLocaleDateString('pt-BR') : client.lastContactDate.toDate().toLocaleDateString('pt-BR')) : '', 
                 client.notes
             ]);
             const wsData = [headers, ...data];
@@ -584,8 +681,8 @@
                 }
 
                 const docRef = await db.collection("clientes").add(clientData);
-                console.log("Documento escrito com ID: ", docRef.id);
                 
+                currentPage = 0; // Ao adicionar um novo cliente, volta para a primeira página
                 await loadClientsFromFirestore(); 
                 clearForm();
                 rawDataInput.value = '';
@@ -632,7 +729,6 @@
 
             try {
                 await db.collection("clientes").doc(editingClientId).update(updatedClientData);
-                console.log("Documento atualizado com ID: ", editingClientId);
 
                 await loadClientsFromFirestore();
                 clearForm();
@@ -647,34 +743,30 @@
         });
 
         cancelEditButton.addEventListener('click', () => {
-            console.log("Cancelar Edição button clicked.");
             clearForm();
             showMessage('Edição cancelada. Formulário limpo.', 'info');
         });
 
-        // --- Lógica para Edição Rápida na Tabela e Preenchimento do Formulário Principal ---
         clientTableBody.addEventListener('click', (event) => {
             const clickedCell = event.target.closest('td');
             const row = clickedCell ? clickedCell.closest('tr') : null;
 
-            if (!row) return; // Se não clicou em uma linha válida, sai
+            if (!row) return;
 
             const clientId = row.dataset.id;
-            const field = clickedCell ? clickedCell.dataset.field : null; // 'status' ou 'lastContactDate'
+            const field = clickedCell ? clickedCell.dataset.field : null;
             const clientData = clients.find(c => c.id === clientId);
 
-            if (!clientData) return; // Cliente não encontrado na lista local
+            if (!clientData) return;
 
-            // Se o clique foi em uma célula de edição rápida (Status ou Último Contato)
             if (clickedCell && (clickedCell.classList.contains('quick-edit-status') || clickedCell.classList.contains('quick-edit-date'))) {
-                event.stopPropagation(); // Impede que o clique na célula acione o fillForm da linha
+                event.stopPropagation();
 
-                // Se já estiver em modo de edição rápida nesta célula, não faz nada
                 if (clickedCell.querySelector('.quick-edit-input')) {
                     return;
                 }
 
-                const originalCellContent = clickedCell.innerHTML; // Salva o conteúdo original da célula
+                const originalCellContent = clickedCell.innerHTML;
 
                 let inputElement;
                 let saveButton = document.createElement('button');
@@ -683,7 +775,7 @@
 
                 let cancelButton = document.createElement('button');
                 cancelButton.classList.add('quick-edit-btn');
-                cancelButton.style.backgroundColor = '#ef4444'; // Cor vermelha para cancelar
+                cancelButton.style.backgroundColor = '#ef4444';
                 cancelButton.textContent = 'X';
 
                 let containerDiv = document.createElement('div');
@@ -730,15 +822,12 @@
                     clickedCell.innerHTML = originalCellContent; 
                 });
 
-                // Reverter ao perder o foco (se não foi salvo)
                 inputElement.addEventListener('blur', () => {
-                    // Verifica se o pai ainda contém o input (não foi salvo pelo botão Salvar)
-                    if (clickedCell.contains(inputElement) && !clickedCell.querySelector('.save-quick-edit-btn')) {
+                    if (clickedCell.contains(inputElement)) {
                         clickedCell.innerHTML = originalCellContent;
                     }
                 });
                 
-                // Salvar ao pressionar ENTER
                 inputElement.addEventListener('keydown', async (e) => {
                     if (e.key === 'Enter') {
                         e.preventDefault(); 
@@ -750,13 +839,11 @@
                 });
 
             } else {
-                // Se não foi uma célula de edição rápida, aciona a lógica de preencher o formulário principal
                 fillForm(clientData);
                 showMessage(`Dados de "${clientData.companyName}" carregados para edição.`, 'info');
             }
         });
 
-        // Função para atualizar um campo específico no Firestore via edição rápida
         async function updateQuickEditField(clientId, field, newValue) {
             let initialScrollTop = clientTableBody.parentElement.scrollTop; 
             try {
@@ -770,7 +857,7 @@
 
                 await db.collection("clientes").doc(clientId).update(updateData);
                 showMessage('Campo atualizado com sucesso!', 'success');
-                await loadClientsFromFirestore(); // Recarrega a tabela para mostrar o valor atualizado e reverter a célula
+                await loadClientsFromFirestore(); 
                 clientTableBody.parentElement.scrollTop = initialScrollTop; 
             } catch (error) {
                 console.error(`Erro ao atualizar campo ${field} no Firestore:`, error);
@@ -779,8 +866,6 @@
                 clientTableBody.parentElement.scrollTop = initialScrollTop; 
             }
         }
-        // --- FIM: Lógica para Edição Rápida na Tabela ---
-
 
         exportExcelButton.addEventListener('click', exportToExcel);
 
@@ -795,8 +880,8 @@
 
             try {
                 await db.collection("clientes").doc(editingClientId).delete();
-                console.log("Documento excluído com ID: ", editingClientId);
 
+                currentPage = 0; 
                 await loadClientsFromFirestore();
                 clearForm(); 
                 showMessage('Cliente excluído com sucesso!', 'success');
@@ -809,17 +894,49 @@
             }
         });
 
-        applyFiltersButton.addEventListener('click', loadClientsFromFirestore);
+        applyFiltersButton.addEventListener('click', () => {
+            currentPage = 0; 
+            loadClientsFromFirestore();
+        });
         clearFiltersButton.addEventListener('click', () => {
             filterStatusField.value = '';
             filterDateFromField.value = '';
             filterDateToField.value = '';
             generalSearchInput.value = ''; 
+            currentPage = 0; 
             loadClientsFromFirestore(); 
             showMessage('Filtros limpos!', 'info');
         });
 
-        searchButton.addEventListener('click', loadClientsFromFirestore);
+        searchButton.addEventListener('click', () => {
+            currentPage = 0; 
+            loadClientsFromFirestore();
+        });
+
+        prevPageButton.addEventListener('click', () => {
+            if (currentPage > 0) {
+                currentPage--;
+                loadClientsFromFirestore('prev'); 
+            }
+        });
+
+        nextPageButton.addEventListener('click', () => {
+            currentPage++;
+            loadClientsFromFirestore('next'); 
+        });
+
+        function updatePaginationButtons() {
+            prevPageButton.disabled = (currentPage === 0);
+
+            // A lógica para 'nextPageButton' precisa de uma consulta extra para saber se há mais documentos
+            // Para evitar uma consulta extra a cada render, vamos desabilitar se a página atual não tiver o número máximo
+            // ou se a quantidade de clientes carregados for menor que o limite (indicando que é a última página)
+            nextPageButton.disabled = (clients.length < CLIENTES_POR_PAGINA);
+            
+            // Para uma paginação mais precisa, precisaríamos de uma contagem total de documentos filtrados
+            // ou buscar um documento a mais para saber se há uma próxima página.
+            // Por enquanto, esta lógica simples funciona se a última página tiver menos que CLIENTES_POR_PAGINA
+        }
 
         document.addEventListener('DOMContentLoaded', loadClientsFromFirestore);
     </script>
