@@ -78,15 +78,21 @@
             display: flex;
             align-items: center;
             gap: 4px; /* Espaçamento entre o input e o botão */
+            flex-wrap: nowrap; /* Impede que os itens quebrem para a próxima linha */
         }
         .quick-edit-input {
-            width: calc(100% - 40px); /* Ajusta largura para o botão */
+            flex-grow: 1; /* Permite que o input cresça para preencher o espaço */
             padding: 4px;
             border: 1px solid #ccc;
             border-radius: 4px;
             font-size: 0.75rem; /* text-sm */
             background-color: #f0f4f8; /* Um cinza claro para destacar */
         }
+        /* Ajuste específico para o select de status na edição rápida */
+        .quick-edit-status .quick-edit-input {
+            min-width: 120px; /* Largura mínima para o select de status */
+        }
+
         .quick-edit-btn {
             background-color: #10b981; /* Verde */
             color: white;
@@ -113,6 +119,14 @@
             padding: 10px 15px; /* Mais padding para ser visível */
             border-radius: 8px; /* Cantos arredondados */
         }
+
+        /* Novas classes para destaque de linhas */
+        .meeting-scheduled-row {
+            background-color: #fffbeb; /* bg-amber-100 */
+        }
+        .contract-signed-row {
+            background-color: #dcfce7; /* bg-green-100 */
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -126,7 +140,7 @@
             </label>
             <textarea id="rawDataInput" rows="6" md:rows="8"
                       class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 placeholder-gray-400"
-                      placeholder="Ex: Nome da Empresa: Minha Loja Ltda.&#10;Telefone: (11) 98765-4321&#10;Site: www.minhaloja.com.br&#10;Endereço: Rua Exemplo, 123, Centro, Cidade - SP&#10;Email: contato@minhaloja.com.br&#10;Nome de Contato: João Silva&#10;Status: Novo&#10;Último Contato: 2023-05-15"></textarea>
+                      placeholder="Ex: Nome da Empresa: Minha Loja Ltda.&#10;Telefone: (11) 98765-4321&#10;Site: www.minhaloja.com.br&#10;Endereço: Rua Exemplo, 123, Centro, Cidade - SP&#10;Email: contato@minhaloja.com.br&#10;Nome de Contato: João Silva&#10;Data de Reunião para Vendas: 2024-07-01&#10;Data de Início do Contrato: 2023-01-15&#10;Status: Novo Contato&#10;Último Contato: 2023-05-15"></textarea>
             <button id="fillFormButton"
                     class="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
                 Preencher Formulário
@@ -167,13 +181,23 @@
                            class="w-full p-2 md:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
                 </div>
                 <div>
+                    <label for="salesMeetingDate" class="block text-sm font-medium text-gray-700 mb-1">Data de Reunião para Vendas:</label>
+                    <input type="date" id="salesMeetingDate"
+                           class="w-full p-2 md:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
+                </div>
+                <div>
+                    <label for="contractStartDate" class="block text-sm font-medium text-gray-700 mb-1">Data de Início do Contrato:</label>
+                    <input type="date" id="contractStartDate"
+                           class="w-full p-2 md:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
+                </div>
+                <div>
                     <label for="status" class="block text-sm font-medium text-gray-700 mb-1">Status:</label>
                     <select id="status"
                             class="w-full p-2 md:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
-                        <option value="Novo">Novo</option>
+                        <option value="Novo Contato">Novo Contato</option>
                         <option value="Em Andamento">Em Andamento</option>
                         <option value="Aguardando Contato">Aguardando Contato</option>
-                        <option value="Fechado">Fechado</option>
+                        <option value="Novo Cliente">Novo Cliente</option>
                         <option value="Perdido">Perdido</option>
                     </select>
                 </div>
@@ -215,10 +239,10 @@
                     <select id="filterStatus"
                             class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
                         <option value="">Todos</option>
-                        <option value="Novo">Novo</option>
+                        <option value="Novo Contato">Novo Contato</option>
                         <option value="Em Andamento">Em Andamento</option>
                         <option value="Aguardando Contato">Aguardando Contato</option>
-                        <option value="Fechado">Fechado</option>
+                        <option value="Novo Cliente">Novo Cliente</option>
                         <option value="Perdido">Perdido</option>
                     </select>
                 </div>
@@ -274,11 +298,14 @@
                         <tr>
                             <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider rounded-tl-lg">Nome da Empresa</th>
                             <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Nome de Contato</th>
-                            <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Telefone</th>
+                            <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider min-w-[120px]">Telefone</th>
                             <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Email</th>
                             <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Site</th>
                             <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Endereço</th>
-                            <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Status</th>
+                            <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Data Reunião Vendas</th>
+                            <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Início Contrato</th>
+                            <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Tempo de Contrato</th>
+                            <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider min-w-[120px]">Status</th>
                             <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Último Contato</th>
                             <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider rounded-tr-lg">Observações</th>
                         </tr>
@@ -358,6 +385,8 @@
         const emailField = document.getElementById('email');
         const websiteField = document.getElementById('website');
         const addressField = document.getElementById('address');
+        const salesMeetingDateField = document.getElementById('salesMeetingDate'); // Novo campo
+        const contractStartDateField = document.getElementById('contractStartDate'); // Novo campo
         const statusField = document.getElementById('status');
         const lastContactDateField = document.getElementById('lastContactDate');
         const notesField = document.getElementById('notes');
@@ -401,12 +430,14 @@
          */
         function clearForm() {
             companyNameField.value = '';
-            contactNameField.value = ''; // Limpa o novo campo
+            contactNameField.value = '';
             phoneField.value = '';
             emailField.value = '';
             websiteField.value = '';
             addressField.value = '';
-            statusField.value = 'Novo'; // Define o status padrão
+            salesMeetingDateField.value = ''; // Limpa o novo campo
+            contractStartDateField.value = ''; // Limpa o novo campo
+            statusField.value = 'Novo Contato'; // Define o status padrão
             lastContactDateField.value = '';
             notesField.value = '';
             editingClientId = null; // Reseta o ID do cliente em edição
@@ -423,13 +454,25 @@
          */
         function fillForm(client) {
             companyNameField.value = client.companyName || '';
-            contactNameField.value = client.contactName || ''; // Preenche o novo campo
+            contactNameField.value = client.contactName || '';
             phoneField.value = client.phone || '';
             emailField.value = client.email || '';
             websiteField.value = client.website || '';
             addressField.value = client.address || '';
-            statusField.value = client.status || 'Novo';
-            // Converte o Timestamp do Firestore para o formato de data HTML (YYYY-MM-DD)
+
+            // Converte o Timestamp do Firestore para o formato de data HTML (YYYY-MM-DD) para os novos campos
+            if (client.salesMeetingDate && client.salesMeetingDate.toDate) {
+                salesMeetingDateField.value = client.salesMeetingDate.toDate().toISOString().split('T')[0];
+            } else {
+                salesMeetingDateField.value = '';
+            }
+            if (client.contractStartDate && client.contractStartDate.toDate) {
+                contractStartDateField.value = client.contractStartDate.toDate().toISOString().split('T')[0];
+            } else {
+                contractStartDateField.value = '';
+            }
+
+            statusField.value = client.status || 'Novo Contato';
             if (client.lastContactDate && client.lastContactDate.toDate) {
                 lastContactDateField.value = client.lastContactDate.toDate().toISOString().split('T')[0];
             } else {
@@ -456,7 +499,7 @@
             if (companyNameMatch) {
                 data.companyName = companyNameMatch[1].trim();
             }
-            const contactNameMatch = rawText.match(/(?:Nome de Contato:|Contato:)\s*([^\n]+)/i); // Regex para Nome de Contato
+            const contactNameMatch = rawText.match(/(?:Nome de Contato:|Contato:)\s*([^\n]+)/i);
             if (contactNameMatch) {
                 data.contactName = contactNameMatch[1].trim();
             }
@@ -486,17 +529,28 @@
                     data.address = genericAddressMatch[0].trim();
                 }
             }
-            const statusMatch = rawText.match(/(?:Status:)\s*(Novo|Em Andamento|Aguardando Contato|Fechado|Perdido)/i);
+            // Regex para Data de Reunião para Vendas
+            const salesMeetingDateMatch = rawText.match(/(?:Data de Reunião para Vendas:|Reunião Vendas:)\s*(\d{4}-\d{2}-\d{2})/i);
+            if (salesMeetingDateMatch) {
+                data.salesMeetingDate = salesMeetingDateMatch[1].trim();
+            }
+            // Regex para Data de Início do Contrato
+            const contractStartDateMatch = rawText.match(/(?:Data de Início do Contrato:|Início Contrato:)\s*(\d{4}-\d{2}-\d{2})/i);
+            if (contractStartDateMatch) {
+                data.contractStartDate = contractStartDateMatch[1].trim();
+            }
+
+            // Atualiza o regex para capturar os novos valores de status
+            const statusMatch = rawText.match(/(?:Status:)\s*(Novo Contato|Em Andamento|Aguardando Contato|Novo Cliente|Perdido)/i);
             if (statusMatch) {
-                // Capitaliza a primeira letra e o restante em minúsculas
-                data.status = statusMatch[1].charAt(0).toUpperCase() + statusMatch[1].slice(1).toLowerCase();
+                data.status = statusMatch[1].trim(); // Pega o valor exato que corresponde
                 // Garante que o status é um dos valores válidos
-                const validStatuses = ['Novo', 'Em Andamento', 'Aguardando Contato', 'Fechado', 'Perdido'];
+                const validStatuses = ['Novo Contato', 'Em Andamento', 'Aguardando Contato', 'Novo Cliente', 'Perdido'];
                 if (!validStatuses.includes(data.status)) {
-                    data.status = 'Novo'; // Define para 'Novo' se o status for inválido
+                    data.status = 'Novo Contato'; // Define para 'Novo Contato' se o status for inválido
                 }
             } else {
-                data.status = 'Novo'; // Padrão se não encontrado
+                data.status = 'Novo Contato'; // Padrão se não encontrado
             }
             const lastContactDateMatch = rawText.match(/(?:Último Contato:|Data Contato:)\s*(\d{4}-\d{2}-\d{2})/i);
             if (lastContactDateMatch) {
@@ -513,6 +567,60 @@
             data.notes = notes.replace(/\s{2,}/g, ' ').trim(); // Remove múltiplos espaços e trim
             return data;
         }
+
+        /**
+         * Formata uma data para o formato brasileiro (DD/MM/YYYY).
+         * @param {Date|firebase.firestore.Timestamp|string} date - A data a ser formatada.
+         * @returns {string} A data formatada ou string vazia se inválido.
+         */
+        function formatDateToBrazilian(date) {
+            if (!date) return '';
+            if (date instanceof Date) {
+                return date.toLocaleDateString('pt-BR');
+            } else if (typeof date.toDate === 'function') { // Firestore Timestamp
+                return date.toDate().toLocaleDateString('pt-BR');
+            } else if (typeof date === 'string') {
+                const d = new Date(date + 'T00:00:00'); // Trata como UTC para evitar problemas de fuso horário
+                return !isNaN(d.getTime()) ? d.toLocaleDateString('pt-BR') : '';
+            }
+            return '';
+        }
+
+        /**
+         * Calcula a duração do contrato a partir de uma data de início.
+         * @param {Date|firebase.firestore.Timestamp|string} startDate - A data de início do contrato.
+         * @returns {string} A duração formatada (dias, meses ou anos) ou string vazia se inválido.
+         */
+        function calculateContractDuration(startDate) {
+            if (!startDate) return '';
+
+            let dateObj;
+            if (startDate instanceof Date) {
+                dateObj = startDate;
+            } else if (typeof startDate.toDate === 'function') {
+                dateObj = startDate.toDate();
+            } else if (typeof startDate === 'string') {
+                dateObj = new Date(startDate + 'T00:00:00');
+                if (isNaN(dateObj.getTime())) return '';
+            } else {
+                return '';
+            }
+
+            const today = new Date();
+            const diffTime = Math.abs(today - dateObj);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays < 30) {
+                return `${diffDays} dia(s)`;
+            } else if (diffDays < 365) {
+                const diffMonths = Math.floor(diffDays / 30.44); // Média de dias por mês
+                return `${diffMonths} mês(es)`;
+            } else {
+                const diffYears = Math.floor(diffDays / 365.25); // Média de dias por ano
+                return `${diffYears} ano(s)`;
+            }
+        }
+
 
         /**
          * Carrega os clientes do Firestore com base nos filtros e na paginação.
@@ -602,22 +710,32 @@
                         if (clientData.lastContactDate && typeof clientData.lastContactDate.toDate === 'function') {
                             clientData.lastContactDate = clientData.lastContactDate.toDate();
                         }
+                        // Converte os novos campos de data para objetos Date para pesquisa
+                        if (clientData.salesMeetingDate && typeof clientData.salesMeetingDate.toDate === 'function') {
+                            clientData.salesMeetingDate = clientData.salesMeetingDate.toDate();
+                        }
+                        if (clientData.contractStartDate && typeof clientData.contractStartDate.toDate === 'function') {
+                            clientData.contractStartDate = clientData.contractStartDate.toDate();
+                        }
                         
                         // Cria um array de campos pesquisáveis em minúsculas
                         const searchableFields = [
                             clientData.companyName,
-                            clientData.contactName, // Adiciona o novo campo para pesquisa
+                            clientData.contactName,
                             clientData.phone,
                             clientData.email,
                             clientData.website,
                             clientData.address,
                             clientData.notes,
-                            clientData.status // Adiciona status para pesquisa
+                            clientData.status
                         ].filter(Boolean).map(field => String(field).toLowerCase());
 
-                        // Adiciona a data formatada para pesquisa
-                        const formattedDateText = (clientData.lastContactDate instanceof Date) ? clientData.lastContactDate.toLocaleDateString('pt-BR').toLowerCase() : '';
-                        searchableFields.push(formattedDateText);
+                        // Adiciona as datas formatadas para pesquisa
+                        searchableFields.push(formatDateToBrazilian(clientData.lastContactDate).toLowerCase());
+                        searchableFields.push(formatDateToBrazilian(clientData.salesMeetingDate).toLowerCase());
+                        searchableFields.push(formatDateToBrazilian(clientData.contractStartDate).toLowerCase());
+                        searchableFields.push(calculateContractDuration(clientData.contractStartDate).toLowerCase());
+
 
                         // Verifica se algum campo pesquisável inclui o termo de pesquisa
                         if (searchableFields.some(field => field.includes(generalSearchTerm))) {
@@ -648,7 +766,7 @@
             clientTableBody.innerHTML = ''; // Limpa o corpo da tabela
             if (clients.length === 0) {
                 // Mensagem se não houver clientes
-                clientTableBody.innerHTML = `<tr><td colspan="9" class="px-3 md:px-6 py-2 md:py-4 text-center text-gray-500">Nenhum cliente cadastrado ainda.</td></tr>`;
+                clientTableBody.innerHTML = `<tr><td colspan="12" class="px-3 md:px-6 py-2 md:py-4 text-center text-gray-500">Nenhum cliente cadastrado ainda.</td></tr>`;
                 return;
             }
 
@@ -658,27 +776,29 @@
                 row.dataset.index = index; // Armazena o índice do cliente no dataset da linha
                 row.dataset.id = client.id; // Armazena o ID do documento do Firestore
 
-                let formattedLastContactDate = '';
-                // Verificação robusta para lastContactDate, lidando com Timestamp, Date ou string
-                if (client.lastContactDate instanceof Date) {
-                    formattedLastContactDate = client.lastContactDate.toLocaleDateString('pt-BR');
-                } else if (client.lastContactDate && typeof client.lastContactDate.toDate === 'function') {
-                    formattedLastContactDate = client.lastContactDate.toDate().toLocaleDateString('pt-BR');
-                } else if (typeof client.lastContactDate === 'string') {
-                    const date = new Date(client.lastContactDate);
-                    if (!isNaN(date.getTime())) { // Verifica se a string é uma data válida
-                        formattedLastContactDate = date.toLocaleDateString('pt-BR');
-                    }
+                // Adiciona classes condicionais para destaque de linha
+                if (client.contractStartDate) {
+                    row.classList.add('contract-signed-row');
+                } else if (client.salesMeetingDate) {
+                    row.classList.add('meeting-scheduled-row');
                 }
+
+                const formattedLastContactDate = formatDateToBrazilian(client.lastContactDate);
+                const formattedSalesMeetingDate = formatDateToBrazilian(client.salesMeetingDate);
+                const formattedContractStartDate = formatDateToBrazilian(client.contractStartDate);
+                const contractDuration = calculateContractDuration(client.contractStartDate);
 
                 row.innerHTML = `
                     <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm font-medium text-gray-900 rounded-bl-lg">${client.companyName || ''}</td>
-                    <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700">${client.contactName || ''}</td> <!-- Nova coluna -->
+                    <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700">${client.contactName || ''}</td>
                     <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700">${client.phone || ''}</td>
                     <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700">${client.email || ''}</td>
                     <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700">${client.website || ''}</td>
                     <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700">${client.address || ''}</td>
-                    <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700 quick-edit-status" data-field="status" data-value="${client.status || 'Novo'}">${client.status || 'Novo'}</td>
+                    <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700 quick-edit-date" data-field="salesMeetingDate" data-value="${client.salesMeetingDate ? (client.salesMeetingDate instanceof Date ? client.salesMeetingDate.toISOString().split('T')[0] : (typeof client.salesMeetingDate.toDate === 'function' ? client.salesMeetingDate.toDate().toISOString().split('T')[0] : '')) : ''}">${formattedSalesMeetingDate}</td>
+                    <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700 quick-edit-date" data-field="contractStartDate" data-value="${client.contractStartDate ? (client.contractStartDate instanceof Date ? client.contractStartDate.toISOString().split('T')[0] : (typeof client.contractStartDate.toDate === 'function' ? client.contractStartDate.toDate().toISOString().split('T')[0] : '')) : ''}">${formattedContractStartDate}</td>
+                    <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700">${contractDuration}</td>
+                    <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700 quick-edit-status" data-field="status" data-value="${client.status || 'Novo Contato'}">${client.status || 'Novo Contato'}</td>
                     <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700 quick-edit-date" data-field="lastContactDate" data-value="${client.lastContactDate ? (client.lastContactDate instanceof Date ? client.lastContactDate.toISOString().split('T')[0] : (typeof client.lastContactDate.toDate === 'function' ? client.lastContactDate.toDate().toISOString().split('T')[0] : '')) : ''}">${formattedLastContactDate}</td>
                     <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700 rounded-br-lg">${client.notes || ''}</td>
                 `;
@@ -695,19 +815,22 @@
                 return;
             }
             const headers = [
-                "Nome da Empresa", "Nome de Contato", "Telefone", "Email", "Site", "Endereço", "Status", "Último Contato", "Observações"
+                "Nome da Empresa", "Nome de Contato", "Telefone", "Email", "Site", "Endereço", 
+                "Data Reunião Vendas", "Início Contrato", "Tempo de Contrato", "Status", "Último Contato", "Observações"
             ];
             // Mapeia os dados do cliente para o formato da tabela Excel
             const data = clients.map(client => [
                 client.companyName,
-                client.contactName, // Inclui o novo campo
+                client.contactName,
                 client.phone,
                 client.email,
                 client.website,
                 client.address,
+                formatDateToBrazilian(client.salesMeetingDate),
+                formatDateToBrazilian(client.contractStartDate),
+                calculateContractDuration(client.contractStartDate), // Tempo de Contrato calculado
                 client.status,
-                // Formata a data para exportação
-                (client.lastContactDate && (client.lastContactDate instanceof Date || typeof client.lastContactDate.toDate === 'function')) ? (client.lastContactDate instanceof Date ? client.lastContactDate.toLocaleDateString('pt-BR') : client.lastContactDate.toDate().toLocaleDateString('pt-BR')) : '',
+                formatDateToBrazilian(client.lastContactDate),
                 client.notes
             ]);
             const wsData = [headers, ...data]; // Combina cabeçalhos e dados
@@ -737,11 +860,13 @@
         addClientButton.addEventListener('click', async () => {
             const clientData = {
                 companyName: companyNameField.value.trim(),
-                contactName: contactNameField.value.trim(), // Adiciona o novo campo
+                contactName: contactNameField.value.trim(),
                 phone: phoneField.value.trim(),
                 email: emailField.value.trim(),
                 website: websiteField.value.trim(),
                 address: addressField.value.trim(),
+                salesMeetingDate: salesMeetingDateField.value ? new Date(salesMeetingDateField.value + 'T00:00:00') : null,
+                contractStartDate: contractStartDateField.value ? new Date(contractStartDateField.value + 'T00:00:00') : null,
                 status: statusField.value,
                 notes: notesField.value.trim(),
                 createdAt: firebase.firestore.FieldValue.serverTimestamp() // Define o timestamp de criação
@@ -824,11 +949,13 @@
 
             const updatedClientData = {
                 companyName: companyNameField.value.trim(),
-                contactName: contactNameField.value.trim(), // Atualiza o novo campo
+                contactName: contactNameField.value.trim(),
                 phone: phoneField.value.trim(),
                 email: emailField.value.trim(),
                 website: websiteField.value.trim(),
                 address: addressField.value.trim(),
+                salesMeetingDate: salesMeetingDateField.value ? new Date(salesMeetingDateField.value + 'T00:00:00') : null,
+                contractStartDate: contractStartDateField.value ? new Date(contractStartDateField.value + 'T00:00:00') : null,
                 status: statusField.value,
                 notes: notesField.value.trim(),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp() // Atualiza o timestamp de modificação
@@ -856,7 +983,7 @@
                 showMessage('Cliente atualizado no Firestore com sucesso!', 'success');
             } catch (error) {
                 console.error('Erro ao atualizar documento no Firestore:', error);
-                showMessage(`Erro ao atualizar cliente no Firestore: ${error.message}. Verifique as regras de segurança.`, 'error');
+                showMessage(`Erro ao atualizar cliente: ${error.message}. Verifique as regras de segurança.`, 'error');
             } finally {
                 updateClientButton.disabled = false;
                 updateLoadingSpinner.classList.add('hidden');
@@ -910,26 +1037,23 @@
                 if (clickedCell.classList.contains('quick-edit-status')) {
                     inputElement = document.createElement('select');
                     inputElement.classList.add('quick-edit-input');
-                    // Opções do select para status
+                    // Opções do select para status (atualizado)
                     inputElement.innerHTML = `
-                        <option value="Novo">Novo</option>
+                        <option value="Novo Contato">Novo Contato</option>
                         <option value="Em Andamento">Em Andamento</option>
                         <option value="Aguardando Contato">Aguardando Contato</option>
-                        <option value="Fechado">Fechado</option>
+                        <option value="Novo Cliente">Novo Cliente</option>
                         <option value="Perdido">Perdido</option>
                     </select>
                     `;
-                    inputElement.value = clientData.status || 'Novo'; // Define o valor atual
+                    inputElement.value = clientData.status || 'Novo Contato'; // Define o valor atual
                 } else if (clickedCell.classList.contains('quick-edit-date')) {
                     inputElement = document.createElement('input');
                     inputElement.type = 'date';
                     inputElement.classList.add('quick-edit-input');
                     // Define o valor da data (formato ISO YYYY-MM-DD)
-                    if (clientData.lastContactDate && clientData.lastContactDate.toISOString) {
-                        inputElement.value = clientData.lastContactDate.toISOString().split('T')[0];
-                    } else {
-                        inputElement.value = '';
-                    }
+                    // Usa data-value para preencher o input corretamente
+                    inputElement.value = clickedCell.dataset.value || '';
                 }
 
                 containerDiv.appendChild(inputElement);
@@ -988,9 +1112,9 @@
             let initialScrollTop = clientTableBody.parentElement.scrollTop; // Salva a posição do scroll
             try {
                 let updateData = {};
-                // Converte a data para um objeto Date se o campo for 'lastContactDate'
-                if (field === 'lastContactDate') {
-                    updateData[field] = newValue ? new Date(newValue + 'T00:00:00') : firebase.firestore.FieldValue.serverTimestamp();
+                // Converte a data para um objeto Date se o campo for de data
+                if (['lastContactDate', 'salesMeetingDate', 'contractStartDate'].includes(field)) {
+                    updateData[field] = newValue ? new Date(newValue + 'T00:00:00') : null;
                 } else {
                     updateData[field] = newValue;
                 }
