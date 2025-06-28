@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
 
+    <!-- Firebase SDK - Versão 9.6.0 compat -->
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
     <style>
@@ -33,13 +34,19 @@
             }
         }
         /* Estilo para a coluna fixa */
-        #clientTable th:first-child,
+        #clientTable th:first-child {
+            position: sticky;
+            left: 0;
+            background-color: #f3f4f6; /* Define explicitamente o fundo para o thead fixo */
+            z-index: 1; /* Garante que fique acima de outras células durante a rolagem */
+            border-right: 1px solid #e5e7eb; /* Opcional: Adiciona uma linha separadora */
+        }
         #clientTable td:first-child {
             position: sticky;
             left: 0;
-            background-color: inherit; /* Ensures the fixed column background is visible */
-            z-index: 1; /* Ensure it's above other cells during scroll */
-            border-right: 1px solid #e5e7eb; /* Optional: Add a separator line */
+            background-color: #fff; /* Define explicitamente o fundo para as células fixas */
+            z-index: 1; /* Garante que fique acima de outras células durante a rolagem */
+            border-right: 1px solid #e5e7eb; /* Opcional: Adiciona uma linha separadora */
         }
         /* Adjust padding for visual alignment with the fixed column */
         #clientTable th:not(:first-child),
@@ -119,7 +126,7 @@
             </label>
             <textarea id="rawDataInput" rows="6" md:rows="8"
                       class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 placeholder-gray-400"
-                      placeholder="Ex: Nome da Empresa: Minha Loja Ltda.&#10;Telefone: (11) 98765-4321&#10;Site: www.minhaloja.com.br&#10;Endereço: Rua Exemplo, 123, Centro, Cidade - SP&#10;Email: contato@minhaloja.com.br&#10;Status: Novo&#10;Último Contato: 2023-05-15"></textarea>
+                      placeholder="Ex: Nome da Empresa: Minha Loja Ltda.&#10;Telefone: (11) 98765-4321&#10;Site: www.minhaloja.com.br&#10;Endereço: Rua Exemplo, 123, Centro, Cidade - SP&#10;Email: contato@minhaloja.com.br&#10;Nome de Contato: João Silva&#10;Status: Novo&#10;Último Contato: 2023-05-15"></textarea>
             <button id="fillFormButton"
                     class="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
                 Preencher Formulário
@@ -132,6 +139,11 @@
                 <div>
                     <label for="companyName" class="block text-sm font-medium text-gray-700 mb-1">Nome da Empresa:</label>
                     <input type="text" id="companyName"
+                           class="w-full p-2 md:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
+                </div>
+                <div>
+                    <label for="contactName" class="block text-sm font-medium text-gray-700 mb-1">Nome de Contato:</label>
+                    <input type="text" id="contactName"
                            class="w-full p-2 md:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
                 </div>
                 <div>
@@ -261,6 +273,7 @@
                     <thead class="bg-gray-100">
                         <tr>
                             <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider rounded-tl-lg">Nome da Empresa</th>
+                            <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Nome de Contato</th>
                             <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Telefone</th>
                             <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Email</th>
                             <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Site</th>
@@ -289,6 +302,9 @@
     </div>
 
     <script>
+        // Define a configuração do Firebase (API Key e outros detalhes)
+        // ATENÇÃO: Em um ambiente de produção real, evite expor a API Key diretamente no código frontend.
+        // Utilize variáveis de ambiente ou métodos mais seguros para carregá-la.
         const firebaseConfig = {
             apiKey: "AIzaSyABjUhnHsga9jPyl0Vz57BLam06j8a0KYY",
             authDomain: "crm-vizione-firestore.firebaseapp.com",
@@ -298,23 +314,27 @@
             appId: "1:232305324276:web:5bd26e12569449bb5eeea1"
         };
 
+        // Inicializa o Firebase, se ainda não foi inicializado
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
         } else {
-            firebase.app(); 
+            firebase.app(); // Se já inicializado, apenas pega a instância
         }
         
+        // Pega a instância do Firestore
         const db = firebase.firestore();
 
-        const CLIENTES_POR_PAGINA = 10; // Define quantos clientes por página
-        let clients = []; // Clientes atualmente exibidos na tabela (apenas da página atual)
-        let lastVisibleDoc = null; // Último documento da página atual para 'next'
-        let firstVisibleDoc = null; // Primeiro documento da página atual para 'prev'
-        let paginationHistory = []; // Histórico de documentos de início de página
+        // Constantes e variáveis globais
+        const CLIENTES_POR_PAGINA = 10; // Define quantos clientes serão exibidos por página
+        let clients = []; // Array que armazena os clientes atualmente exibidos na tabela
+        let lastVisibleDoc = null; // Referência ao último documento da página atual para paginação 'próxima'
+        let firstVisibleDoc = null; // Referência ao primeiro documento da página atual para paginação 'anterior'
+        let paginationHistory = []; // Histórico de documentos de início de página para navegação "voltar"
         let currentPage = 0; // Índice da página atual (0-based)
 
-        let editingClientId = null; 
+        let editingClientId = null; // Armazena o ID do cliente sendo editado no formulário
 
+        // Mapeamento dos elementos do DOM
         const rawDataInput = document.getElementById('rawDataInput');
         const fillFormButton = document.getElementById('fillFormButton');
         const clientForm = document.getElementById('clientForm');
@@ -322,17 +342,18 @@
         const updateClientButton = document.getElementById('updateClientButton');
         const cancelEditButton = document.getElementById('cancelEditButton');
         const clientTableBody = document.getElementById('clientTableBody');
-        const messageBox = document.getElementById('messageBox');
+        const messageBox = document.getElementById('messageBox'); // Elemento para exibir mensagens ao usuário
         const exportExcelButton = document.getElementById('exportExcelButton');
-        const deleteClientButton = document.getElementById('deleteClientButton'); 
-        const loadingSpinner = document.getElementById('loadingSpinner'); 
+        const deleteClientButton = document.getElementById('deleteClientButton');
+        const loadingSpinner = document.getElementById('loadingSpinner');
         const updateLoadingSpinner = document.getElementById('updateLoadingSpinner');
         const deleteLoadingSpinner = document.getElementById('deleteLoadingSpinner');
 
         const clientDetailsContainer = document.getElementById('clientDetailsContainer');
 
-
+        // Campos do formulário
         const companyNameField = document.getElementById('companyName');
+        const contactNameField = document.getElementById('contactName'); // Novo campo
         const phoneField = document.getElementById('phone');
         const emailField = document.getElementById('email');
         const websiteField = document.getElementById('website');
@@ -341,17 +362,23 @@
         const lastContactDateField = document.getElementById('lastContactDate');
         const notesField = document.getElementById('notes');
 
+        // Campos de filtro e pesquisa
         const filterStatusField = document.getElementById('filterStatus');
         const filterDateFromField = document.getElementById('filterDateFrom');
         const filterDateToField = document.getElementById('filterDateTo');
         const applyFiltersButton = document.getElementById('applyFiltersButton');
         const clearFiltersButton = document.getElementById('clearFiltersButton');
-        const generalSearchInput = document.getElementById('generalSearchInput'); 
-        const searchButton = document.getElementById('searchButton'); 
-        const prevPageButton = document.getElementById('prevPageButton'); 
-        const nextPageButton = document.getElementById('nextPageButton'); 
+        const generalSearchInput = document.getElementById('generalSearchInput');
+        const searchButton = document.getElementById('searchButton');
+        const prevPageButton = document.getElementById('prevPageButton');
+        const nextPageButton = document.getElementById('nextPageButton');
 
-
+        /**
+         * Exibe uma mensagem para o usuário.
+         * @param {string} message - A mensagem a ser exibida.
+         * @param {string} type - O tipo de mensagem ('success', 'error', 'info').
+         * @param {HTMLElement} [targetBox=messageBox] - O elemento HTML onde a mensagem será exibida.
+         */
         function showMessage(message, type, targetBox = messageBox) {
             targetBox.textContent = message;
             targetBox.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700', 'bg-yellow-100', 'text-yellow-700');
@@ -363,52 +390,75 @@
                 targetBox.classList.add('bg-yellow-100', 'text-yellow-700');
             }
             targetBox.classList.remove('hidden');
+            // Oculta a mensagem após 3 segundos
             setTimeout(() => {
                 targetBox.classList.add('hidden');
             }, 3000);
         }
 
+        /**
+         * Limpa todos os campos do formulário e redefine o estado de edição.
+         */
         function clearForm() {
             companyNameField.value = '';
+            contactNameField.value = ''; // Limpa o novo campo
             phoneField.value = '';
             emailField.value = '';
             websiteField.value = '';
             addressField.value = '';
-            statusField.value = 'Novo';
+            statusField.value = 'Novo'; // Define o status padrão
             lastContactDateField.value = '';
             notesField.value = '';
-            editingClientId = null; 
+            editingClientId = null; // Reseta o ID do cliente em edição
             
-            updateClientButton.disabled = true; 
-            deleteClientButton.disabled = true; 
-            clientDetailsContainer.classList.remove('edit-mode-border');
+            // Desabilita botões de atualização e exclusão
+            updateClientButton.disabled = true;
+            deleteClientButton.disabled = true;
+            clientDetailsContainer.classList.remove('edit-mode-border'); // Remove borda de edição
         }
 
+        /**
+         * Preenche o formulário com os dados de um cliente.
+         * @param {Object} client - O objeto cliente contendo os dados a serem preenchidos.
+         */
         function fillForm(client) {
             companyNameField.value = client.companyName || '';
+            contactNameField.value = client.contactName || ''; // Preenche o novo campo
             phoneField.value = client.phone || '';
             emailField.value = client.email || '';
             websiteField.value = client.website || '';
             addressField.value = client.address || '';
             statusField.value = client.status || 'Novo';
+            // Converte o Timestamp do Firestore para o formato de data HTML (YYYY-MM-DD)
             if (client.lastContactDate && client.lastContactDate.toDate) {
                 lastContactDateField.value = client.lastContactDate.toDate().toISOString().split('T')[0];
             } else {
                 lastContactDateField.value = '';
             }
             notesField.value = client.notes || '';
-            editingClientId = client.id; 
+            editingClientId = client.id; // Define o ID do cliente que está sendo editado
 
-            updateClientButton.disabled = false; 
-            deleteClientButton.disabled = false; 
+            // Habilita botões de atualização e exclusão e adiciona borda de edição
+            updateClientButton.disabled = false;
+            deleteClientButton.disabled = false;
             clientDetailsContainer.classList.add('edit-mode-border');
         }
 
+        /**
+         * Analisa o texto bruto do Google Meu Negócio e extrai informações do cliente.
+         * @param {string} rawText - O texto bruto a ser analisado.
+         * @returns {Object} Um objeto com os dados do cliente extraídos.
+         */
         function parseRawData(rawText) {
             const data = {};
+            // Expressões regulares para extrair os dados
             const companyNameMatch = rawText.match(/(?:Nome da Empresa:|Empresa:)\s*([^\n]+)/i) || rawText.match(/^([^\n]+)/);
             if (companyNameMatch) {
                 data.companyName = companyNameMatch[1].trim();
+            }
+            const contactNameMatch = rawText.match(/(?:Nome de Contato:|Contato:)\s*([^\n]+)/i); // Regex para Nome de Contato
+            if (contactNameMatch) {
+                data.contactName = contactNameMatch[1].trim();
             }
             const phoneMatch = rawText.match(/(?:\(?\d{2}\)?\s*\d{4,5}[-\s]?\d{4}|\+\d{2}\s*\d{2}\s*\d{4,5}[-\s]?\d{4})/);
             if (phoneMatch) {
@@ -421,6 +471,7 @@
             const websiteMatch = rawText.match(/(?:https?:\/\/)?(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+(?:\/[^\s]*)?)/);
             if (websiteMatch) {
                 data.website = websiteMatch[0].trim();
+                // Adiciona http:// se não houver protocolo
                 if (!data.website.startsWith('http://') && !data.website.startsWith('https://')) {
                     data.website = 'http://' + data.website;
                 }
@@ -429,6 +480,7 @@
             if (addressMatch) {
                 data.address = addressMatch[0].trim();
             } else {
+                // Tenta uma correspondência mais genérica para o endereço se a primeira falhar
                 const genericAddressMatch = rawText.match(/(\d{1,5}\s+[A-Za-z\s]+\s+(?:Rua|Av\.|Avenida|Travessa|Praça|Bairro|Centro|Cidade|Estado)[^\n]*)/i);
                 if (genericAddressMatch) {
                     data.address = genericAddressMatch[0].trim();
@@ -436,39 +488,51 @@
             }
             const statusMatch = rawText.match(/(?:Status:)\s*(Novo|Em Andamento|Aguardando Contato|Fechado|Perdido)/i);
             if (statusMatch) {
+                // Capitaliza a primeira letra e o restante em minúsculas
                 data.status = statusMatch[1].charAt(0).toUpperCase() + statusMatch[1].slice(1).toLowerCase();
+                // Garante que o status é um dos valores válidos
                 const validStatuses = ['Novo', 'Em Andamento', 'Aguardando Contato', 'Fechado', 'Perdido'];
                 if (!validStatuses.includes(data.status)) {
-                    data.status = 'Novo';
+                    data.status = 'Novo'; // Define para 'Novo' se o status for inválido
                 }
             } else {
-                data.status = 'Novo';
+                data.status = 'Novo'; // Padrão se não encontrado
             }
             const lastContactDateMatch = rawText.match(/(?:Último Contato:|Data Contato:)\s*(\d{4}-\d{2}-\d{2})/i);
             if (lastContactDateMatch) {
                 data.lastContactDate = lastContactDateMatch[1].trim();
             }
+            // Extrai observações removendo os dados já extraídos
             let notes = rawText;
             for (const key in data) {
                 if (data[key]) {
+                    // Escapa caracteres especiais para uso em RegExp
                     notes = notes.replace(new RegExp(data[key].replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'gi'), '').trim();
                 }
             }
-            data.notes = notes.replace(/\s{2,}/g, ' ').trim();
+            data.notes = notes.replace(/\s{2,}/g, ' ').trim(); // Remove múltiplos espaços e trim
             return data;
         }
 
+        /**
+         * Carrega os clientes do Firestore com base nos filtros e na paginação.
+         * @param {string} direction - Direção da paginação ('current', 'next', 'prev').
+         */
         async function loadClientsFromFirestore(direction = 'current') {
+            // Salva a posição atual do scroll para restaurar após a renderização
             let scrollPosition = clientTableBody.parentElement.scrollTop;
-            clients = [];
+            clients = []; // Limpa o array de clientes antes de carregar novos
+
             try {
                 let clientsRef = db.collection("clientes");
 
+                // Pega os valores dos filtros
                 const filterStatus = filterStatusField.value;
                 const filterDateFrom = filterDateFromField.value;
                 const filterDateTo = filterDateToField.value;
                 const generalSearchTerm = generalSearchInput.value.trim().toLowerCase();
 
+                // Aplica filtros se existirem
                 if (filterStatus) {
                     clientsRef = clientsRef.where('status', '==', filterStatus);
                 }
@@ -481,23 +545,28 @@
                     clientsRef = clientsRef.where('lastContactDate', '<=', dateTo);
                 }
 
+                // Ordena por 'lastContactDate' se houver filtro de data, caso contrário, por 'createdAt'
                 if (filterDateFrom || filterDateTo) {
                     clientsRef = clientsRef.orderBy('lastContactDate', 'asc');
-                    clientsRef = clientsRef.orderBy('createdAt', 'desc');
+                    clientsRef = clientsRef.orderBy('createdAt', 'desc'); // Ordem secundária para estabilidade
                 } else {
-                    clientsRef = clientsRef.orderBy('createdAt', 'desc');
+                    clientsRef = clientsRef.orderBy('createdAt', 'desc'); // Ordena os clientes por data de criação (mais novos primeiro)
                 }
 
                 // Lógica de Paginação do Firestore
                 let queryToExecute;
                 if (direction === 'next' && lastVisibleDoc) {
+                    // Inicia a consulta após o último documento visível da página anterior
                     queryToExecute = clientsRef.startAfter(lastVisibleDoc).limit(CLIENTES_POR_PAGINA);
                 } else if (direction === 'prev' && firstVisibleDoc && paginationHistory.length > 1) {
-                    paginationHistory.pop(); // Remove o doc da página atual
-                    const prevStartDoc = paginationHistory[paginationHistory.length - 1]; // Pega o doc de início da página anterior
+                    // Remove o documento da página atual do histórico
+                    paginationHistory.pop();
+                    // Pega o documento de início da página anterior
+                    const prevStartDoc = paginationHistory[paginationHistory.length - 1];
                     queryToExecute = clientsRef.startAt(prevStartDoc).limit(CLIENTES_POR_PAGINA);
                 } else {
-                    paginationHistory = []; // Limpa histórico
+                    // Primeira carga ou aplicação de novos filtros/pesquisa, reinicia a paginação
+                    paginationHistory = []; // Limpa o histórico de paginação
                     queryToExecute = clientsRef.limit(CLIENTES_POR_PAGINA);
                 }
                 
@@ -505,9 +574,11 @@
 
                 let fetchedClients = [];
                 querySnapshot.forEach(doc => {
+                    // Adiciona a referência do documento para uso na paginação
                     fetchedClients.push({ id: doc.id, ...doc.data(), docRef: doc });
                 });
 
+                // Atualiza as referências de documentos visíveis para paginação
                 if (fetchedClients.length > 0) {
                     firstVisibleDoc = fetchedClients[0].docRef;
                     lastVisibleDoc = fetchedClients[fetchedClients.length - 1].docRef;
@@ -520,7 +591,8 @@
                     lastVisibleDoc = null;
                 }
 
-                let clientsToRender = []; 
+                let clientsToRender = [];
+                // Aplica a pesquisa geral em memória (após a filtragem do Firestore)
                 if (generalSearchTerm) {
                     fetchedClients.forEach(clientData => {
                         // Converte Timestamps para objetos Date para facilitar a formatação na busca
@@ -531,53 +603,63 @@
                             clientData.lastContactDate = clientData.lastContactDate.toDate();
                         }
                         
+                        // Cria um array de campos pesquisáveis em minúsculas
                         const searchableFields = [
                             clientData.companyName,
+                            clientData.contactName, // Adiciona o novo campo para pesquisa
                             clientData.phone,
                             clientData.email,
                             clientData.website,
                             clientData.address,
                             clientData.notes,
-                            clientData.status 
-                        ].filter(Boolean).map(field => String(field).toLowerCase()); 
+                            clientData.status // Adiciona status para pesquisa
+                        ].filter(Boolean).map(field => String(field).toLowerCase());
 
+                        // Adiciona a data formatada para pesquisa
                         const formattedDateText = (clientData.lastContactDate instanceof Date) ? clientData.lastContactDate.toLocaleDateString('pt-BR').toLowerCase() : '';
                         searchableFields.push(formattedDateText);
 
+                        // Verifica se algum campo pesquisável inclui o termo de pesquisa
                         if (searchableFields.some(field => field.includes(generalSearchTerm))) {
                             clientsToRender.push(clientData);
                         }
                     });
                 } else {
-                    clientsToRender = fetchedClients; 
+                    clientsToRender = fetchedClients; // Se não houver pesquisa, todos os clientes filtrados são renderizados
                 }
 
-                clients = clientsToRender; 
-                renderClientTable();
-                updatePaginationButtons(); 
-                clientTableBody.parentElement.scrollTop = scrollPosition; 
+                clients = clientsToRender; // Atualiza o array global de clientes
+                renderClientTable(); // Renderiza a tabela com os clientes carregados/filtrados/pesquisados
+                updatePaginationButtons(); // Atualiza o estado dos botões de paginação
+                // Restaura a posição do scroll
+                clientTableBody.parentElement.scrollTop = scrollPosition;
                 showMessage('Clientes carregados e filtrados/pesquisados com sucesso!', 'success');
             } catch (error) {
                 console.error("Erro ao carregar clientes do Firestore: ", error);
+                // Sugestão de verificação de regras e índices do Firestore em caso de erro
                 showMessage('Erro ao carregar clientes. Verifique as regras de segurança do Firestore e os índices do Firestore (se estiver usando filtros de data ou múltiplos filtros).', 'error');
             }
         }
 
+        /**
+         * Renderiza a tabela de clientes com os dados do array `clients`.
+         */
         function renderClientTable() {
-            clientTableBody.innerHTML = '';
+            clientTableBody.innerHTML = ''; // Limpa o corpo da tabela
             if (clients.length === 0) {
-                clientTableBody.innerHTML = `<tr><td colspan="8" class="px-3 md:px-6 py-2 md:py-4 text-center text-gray-500">Nenhum cliente cadastrado ainda.</td></tr>`;
+                // Mensagem se não houver clientes
+                clientTableBody.innerHTML = `<tr><td colspan="9" class="px-3 md:px-6 py-2 md:py-4 text-center text-gray-500">Nenhum cliente cadastrado ainda.</td></tr>`;
                 return;
             }
 
             clients.forEach((client, index) => {
                 const row = document.createElement('tr');
                 row.classList.add('hover:bg-gray-50', 'cursor-pointer', 'transition', 'duration-150', 'ease-in-out');
-                row.dataset.index = index;
-                row.dataset.id = client.id;
+                row.dataset.index = index; // Armazena o índice do cliente no dataset da linha
+                row.dataset.id = client.id; // Armazena o ID do documento do Firestore
 
                 let formattedLastContactDate = '';
-                // Verificação robusta para lastContactDate
+                // Verificação robusta para lastContactDate, lidando com Timestamp, Date ou string
                 if (client.lastContactDate instanceof Date) {
                     formattedLastContactDate = client.lastContactDate.toLocaleDateString('pt-BR');
                 } else if (client.lastContactDate && typeof client.lastContactDate.toDate === 'function') {
@@ -591,6 +673,7 @@
 
                 row.innerHTML = `
                     <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm font-medium text-gray-900 rounded-bl-lg">${client.companyName || ''}</td>
+                    <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700">${client.contactName || ''}</td> <!-- Nova coluna -->
                     <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700">${client.phone || ''}</td>
                     <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700">${client.email || ''}</td>
                     <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700">${client.website || ''}</td>
@@ -603,32 +686,41 @@
             });
         }
 
+        /**
+         * Exporta os dados da tabela de clientes para um arquivo Excel.
+         */
         function exportToExcel() {
             if (clients.length === 0) {
                 showMessage('Não há clientes para exportar.', 'info');
                 return;
             }
             const headers = [
-                "Nome da Empresa", "Telefone", "Email", "Site", "Endereço", "Status", "Último Contato", "Observações"
+                "Nome da Empresa", "Nome de Contato", "Telefone", "Email", "Site", "Endereço", "Status", "Último Contato", "Observações"
             ];
+            // Mapeia os dados do cliente para o formato da tabela Excel
             const data = clients.map(client => [
                 client.companyName,
+                client.contactName, // Inclui o novo campo
                 client.phone,
                 client.email,
                 client.website,
                 client.address,
                 client.status,
-                (client.lastContactDate && (client.lastContactDate instanceof Date || typeof client.lastContactDate.toDate === 'function')) ? (client.lastContactDate instanceof Date ? client.lastContactDate.toLocaleDateString('pt-BR') : client.lastContactDate.toDate().toLocaleDateString('pt-BR')) : '', 
+                // Formata a data para exportação
+                (client.lastContactDate && (client.lastContactDate instanceof Date || typeof client.lastContactDate.toDate === 'function')) ? (client.lastContactDate instanceof Date ? client.lastContactDate.toLocaleDateString('pt-BR') : client.lastContactDate.toDate().toLocaleDateString('pt-BR')) : '',
                 client.notes
             ]);
-            const wsData = [headers, ...data];
-            const wb = XLSX.utils.book_new();
-            const ws = XLSX.utils.aoa_to_sheet(wsData);
-            XLSX.utils.book_append_sheet(wb, ws, "Clientes CRM");
-            XLSX.writeFile(wb, "clientes_crm.xlsx");
+            const wsData = [headers, ...data]; // Combina cabeçalhos e dados
+            const wb = XLSX.utils.book_new(); // Cria um novo workbook
+            const ws = XLSX.utils.aoa_to_sheet(wsData); // Converte array de arrays para sheet
+            XLSX.utils.book_append_sheet(wb, ws, "Clientes CRM"); // Adiciona a sheet ao workbook
+            XLSX.writeFile(wb, "clientes_crm.xlsx"); // Escreve o arquivo Excel
             showMessage('Dados exportados para "clientes_crm.xlsx" com sucesso!', 'success');
         }
 
+        // --- Listeners de Eventos ---
+
+        // Preenche o formulário a partir dos dados brutos
         fillFormButton.addEventListener('click', () => {
             const rawText = rawDataInput.value;
             if (rawText.trim() === '') {
@@ -636,27 +728,30 @@
                 return;
             }
             const parsedData = parseRawData(rawText);
-            clearForm(); 
+            clearForm(); // Limpa o formulário antes de preencher
             fillForm(parsedData);
             showMessage('Formulário preenchido com sucesso!', 'success');
         });
 
+        // Adiciona um novo cliente ao Firestore
         addClientButton.addEventListener('click', async () => {
             const clientData = {
                 companyName: companyNameField.value.trim(),
+                contactName: contactNameField.value.trim(), // Adiciona o novo campo
                 phone: phoneField.value.trim(),
                 email: emailField.value.trim(),
                 website: websiteField.value.trim(),
                 address: addressField.value.trim(),
                 status: statusField.value,
                 notes: notesField.value.trim(),
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                createdAt: firebase.firestore.FieldValue.serverTimestamp() // Define o timestamp de criação
             };
 
+            // Define a data do último contato, ou usa o timestamp do servidor se não houver data
             if (lastContactDateField.value) {
                 clientData.lastContactDate = new Date(lastContactDateField.value + 'T00:00:00');
             } else {
-                clientData.lastContactDate = firebase.firestore.FieldValue.serverTimestamp(); 
+                clientData.lastContactDate = firebase.firestore.FieldValue.serverTimestamp();
             }
 
 
@@ -665,18 +760,21 @@
                 return;
             }
 
-            addClientButton.disabled = true;
-            loadingSpinner.classList.remove('hidden');
+            addClientButton.disabled = true; // Desabilita o botão para evitar cliques múltiplos
+            loadingSpinner.classList.remove('hidden'); // Exibe o spinner de carregamento
 
             try {
+                // Verifica se já existe um cliente com o mesmo nome, telefone ou email
                 let isDuplicate = false;
 
+                // Consulta por nome da empresa
                 const companyNameQuery = db.collection("clientes").where("companyName", "==", clientData.companyName);
                 const companyNameSnapshot = await companyNameQuery.get();
                 if (!companyNameSnapshot.empty) {
                     isDuplicate = true;
                 }
 
+                // Consulta por telefone (se houver telefone e ainda não for duplicado)
                 if (!isDuplicate && clientData.phone) {
                     const phoneQuery = db.collection("clientes").where("phone", "==", clientData.phone);
                     const phoneSnapshot = await phoneQuery.get();
@@ -685,6 +783,7 @@
                     }
                 }
 
+                // Consulta por email (se houver email e ainda não for duplicado)
                 if (!isDuplicate && clientData.email) {
                     const emailQuery = db.collection("clientes").where("email", "==", clientData.email);
                     const emailSnapshot = await emailQuery.get();
@@ -697,25 +796,26 @@
                     showMessage('Cliente já cadastrado na base de dados (Nome da Empresa, Telefone ou Email duplicado).', 'info');
                     addClientButton.disabled = false;
                     loadingSpinner.classList.add('hidden');
-                    return; 
+                    return; // Interrompe o processo se for duplicado
                 }
 
                 const docRef = await db.collection("clientes").add(clientData);
                 
                 currentPage = 0; // Ao adicionar um novo cliente, volta para a primeira página
-                await loadClientsFromFirestore(); 
-                clearForm();
-                rawDataInput.value = '';
+                await loadClientsFromFirestore(); // Recarrega a tabela de clientes
+                clearForm(); // Limpa o formulário após o cadastro
+                rawDataInput.value = ''; // Limpa a caixa de texto bruta
                 showMessage('Cliente cadastrado e salvo no Firestore com sucesso!', 'success');
             } catch (error) {
                 console.error('Erro ao adicionar documento no Firestore:', error);
                 showMessage(`Erro ao cadastrar cliente no Firestore: ${error.message}. Verifique as regras de segurança do Firestore.`, 'error');
             } finally {
-                addClientButton.disabled = false;
-                loadingSpinner.classList.add('hidden');
+                addClientButton.disabled = false; // Reabilita o botão
+                loadingSpinner.classList.add('hidden'); // Oculta o spinner
             }
         });
 
+        // Atualiza um cliente existente no Firestore
         updateClientButton.addEventListener('click', async () => {
             if (!editingClientId) {
                 showMessage('Nenhum cliente selecionado para atualizar.', 'info');
@@ -724,19 +824,20 @@
 
             const updatedClientData = {
                 companyName: companyNameField.value.trim(),
+                contactName: contactNameField.value.trim(), // Atualiza o novo campo
                 phone: phoneField.value.trim(),
                 email: emailField.value.trim(),
                 website: websiteField.value.trim(),
                 address: addressField.value.trim(),
                 status: statusField.value,
                 notes: notesField.value.trim(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp() 
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp() // Atualiza o timestamp de modificação
             };
 
             if (lastContactDateField.value) {
                 updatedClientData.lastContactDate = new Date(lastContactDateField.value + 'T00:00:00');
             } else {
-                updatedClientData.lastContactDate = firebase.firestore.FieldValue.serverTimestamp(); 
+                updatedClientData.lastContactDate = firebase.firestore.FieldValue.serverTimestamp();
             }
 
             if (!updatedClientData.companyName) {
@@ -750,8 +851,8 @@
             try {
                 await db.collection("clientes").doc(editingClientId).update(updatedClientData);
 
-                await loadClientsFromFirestore();
-                clearForm();
+                await loadClientsFromFirestore(); // Recarrega a tabela para exibir as atualizações
+                clearForm(); // Limpa o formulário
                 showMessage('Cliente atualizado no Firestore com sucesso!', 'success');
             } catch (error) {
                 console.error('Erro ao atualizar documento no Firestore:', error);
@@ -762,31 +863,35 @@
             }
         });
 
+        // Cancela a edição e limpa o formulário
         cancelEditButton.addEventListener('click', () => {
             clearForm();
             showMessage('Edição cancelada. Formulário limpo.', 'info');
         });
 
+        // Lida com cliques na tabela para edição rápida ou preenchimento do formulário
         clientTableBody.addEventListener('click', (event) => {
-            const clickedCell = event.target.closest('td');
-            const row = clickedCell ? clickedCell.closest('tr') : null;
+            const clickedCell = event.target.closest('td'); // Pega a célula clicada
+            const row = clickedCell ? clickedCell.closest('tr') : null; // Pega a linha da tabela
 
-            if (!row) return;
+            if (!row) return; // Sai se não clicou em uma linha
 
-            const clientId = row.dataset.id;
-            const field = clickedCell ? clickedCell.dataset.field : null;
-            const clientData = clients.find(c => c.id === clientId);
+            const clientId = row.dataset.id; // Pega o ID do cliente da linha
+            const field = clickedCell ? clickedCell.dataset.field : null; // Pega o campo a ser editado
+            const clientData = clients.find(c => c.id === clientId); // Encontra os dados do cliente
 
-            if (!clientData) return;
+            if (!clientData) return; // Sai se os dados do cliente não forem encontrados
 
+            // Se clicou em uma célula de edição rápida (status ou data)
             if (clickedCell && (clickedCell.classList.contains('quick-edit-status') || clickedCell.classList.contains('quick-edit-date'))) {
-                event.stopPropagation();
+                event.stopPropagation(); // Impede que o clique se propague para a linha
 
+                // Se já existe um input de edição, sai (evita múltiplos inputs)
                 if (clickedCell.querySelector('.quick-edit-input')) {
                     return;
                 }
 
-                const originalCellContent = clickedCell.innerHTML;
+                const originalCellContent = clickedCell.innerHTML; // Salva o conteúdo original da célula
 
                 let inputElement;
                 let saveButton = document.createElement('button');
@@ -795,15 +900,17 @@
 
                 let cancelButton = document.createElement('button');
                 cancelButton.classList.add('quick-edit-btn');
-                cancelButton.style.backgroundColor = '#ef4444';
+                cancelButton.style.backgroundColor = '#ef4444'; // Estilo para o botão Cancelar (vermelho)
                 cancelButton.textContent = 'X';
 
                 let containerDiv = document.createElement('div');
                 containerDiv.classList.add('quick-edit-container');
 
+                // Cria o elemento de input/select apropriado
                 if (clickedCell.classList.contains('quick-edit-status')) {
                     inputElement = document.createElement('select');
                     inputElement.classList.add('quick-edit-input');
+                    // Opções do select para status
                     inputElement.innerHTML = `
                         <option value="Novo">Novo</option>
                         <option value="Em Andamento">Em Andamento</option>
@@ -812,11 +919,12 @@
                         <option value="Perdido">Perdido</option>
                     </select>
                     `;
-                    inputElement.value = clientData.status || 'Novo';
+                    inputElement.value = clientData.status || 'Novo'; // Define o valor atual
                 } else if (clickedCell.classList.contains('quick-edit-date')) {
                     inputElement = document.createElement('input');
                     inputElement.type = 'date';
                     inputElement.classList.add('quick-edit-input');
+                    // Define o valor da data (formato ISO YYYY-MM-DD)
                     if (clientData.lastContactDate && clientData.lastContactDate.toISOString) {
                         inputElement.value = clientData.lastContactDate.toISOString().split('T')[0];
                     } else {
@@ -828,67 +936,82 @@
                 containerDiv.appendChild(saveButton);
                 containerDiv.appendChild(cancelButton);
 
-                clickedCell.innerHTML = ''; 
-                clickedCell.appendChild(containerDiv); 
-                inputElement.focus();
+                clickedCell.innerHTML = ''; // Limpa o conteúdo da célula
+                clickedCell.appendChild(containerDiv); // Adiciona o input e botões
+                inputElement.focus(); // Foca no input
 
+                // Listener para o botão Salvar da edição rápida
                 saveButton.addEventListener('click', async (e) => {
-                    e.stopPropagation();
+                    e.stopPropagation(); // Impede a propagação do clique
                     await updateQuickEditField(clientId, field, inputElement.value);
                 });
 
+                // Listener para o botão Cancelar da edição rápida
                 cancelButton.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    clickedCell.innerHTML = originalCellContent; 
+                    clickedCell.innerHTML = originalCellContent; // Restaura o conteúdo original
                 });
 
+                // Listener para quando o input perde o foco (blur)
                 inputElement.addEventListener('blur', () => {
+                    // Restaura o conteúdo original se o input ainda estiver na célula
                     if (clickedCell.contains(inputElement)) {
                         clickedCell.innerHTML = originalCellContent;
                     }
                 });
                 
+                // Listener para teclas (Enter para salvar, Esc para cancelar)
                 inputElement.addEventListener('keydown', async (e) => {
                     if (e.key === 'Enter') {
-                        e.preventDefault(); 
+                        e.preventDefault(); // Impede a quebra de linha em textareas ou envio de formulário
                         await updateQuickEditField(clientId, field, inputElement.value);
-                    } else if (e.key === 'Escape') { 
+                    } else if (e.key === 'Escape') {
                         e.preventDefault();
-                        clickedCell.innerHTML = originalCellContent;
+                        clickedCell.innerHTML = originalCellContent; // Restaura o conteúdo original
                     }
                 });
 
             } else {
+                // Se não for edição rápida, preenche o formulário principal
                 fillForm(clientData);
                 showMessage(`Dados de "${clientData.companyName}" carregados para edição.`, 'info');
             }
         });
 
+        /**
+         * Atualiza um campo específico de um cliente no Firestore (usado para edição rápida na tabela).
+         * @param {string} clientId - O ID do cliente a ser atualizado.
+         * @param {string} field - O nome do campo a ser atualizado.
+         * @param {any} newValue - O novo valor para o campo.
+         */
         async function updateQuickEditField(clientId, field, newValue) {
-            let initialScrollTop = clientTableBody.parentElement.scrollTop; 
+            let initialScrollTop = clientTableBody.parentElement.scrollTop; // Salva a posição do scroll
             try {
                 let updateData = {};
+                // Converte a data para um objeto Date se o campo for 'lastContactDate'
                 if (field === 'lastContactDate') {
-                    updateData[field] = newValue ? new Date(newValue + 'T00:00:00') : firebase.firestore.FieldValue.serverTimestamp(); 
+                    updateData[field] = newValue ? new Date(newValue + 'T00:00:00') : firebase.firestore.FieldValue.serverTimestamp();
                 } else {
                     updateData[field] = newValue;
                 }
-                updateData.updatedAt = firebase.firestore.FieldValue.serverTimestamp(); 
+                updateData.updatedAt = firebase.firestore.FieldValue.serverTimestamp(); // Atualiza o timestamp de modificação
 
                 await db.collection("clientes").doc(clientId).update(updateData);
                 showMessage('Campo atualizado com sucesso!', 'success');
-                await loadClientsFromFirestore(); 
-                clientTableBody.parentElement.scrollTop = initialScrollTop; 
+                await loadClientsFromFirestore(); // Recarrega a tabela para exibir a mudança
+                clientTableBody.parentElement.scrollTop = initialScrollTop; // Restaura a posição do scroll
             } catch (error) {
                 console.error(`Erro ao atualizar campo ${field} no Firestore:`, error);
                 showMessage(`Erro ao atualizar campo: ${error.message}`, 'error');
-                await loadClientsFromFirestore(); 
-                clientTableBody.parentElement.scrollTop = initialScrollTop; 
+                await loadClientsFromFirestore(); // Recarrega mesmo em caso de erro para garantir consistência
+                clientTableBody.parentElement.scrollTop = initialScrollTop; // Restaura a posição do scroll
             }
         }
 
+        // Exporta os dados para Excel
         exportExcelButton.addEventListener('click', exportToExcel);
 
+        // Exclui um cliente do Firestore
         deleteClientButton.addEventListener('click', async () => {
             if (!editingClientId) {
                 showMessage('Selecione um cliente na tabela primeiro para excluí-lo.', 'info');
@@ -901,9 +1024,9 @@
             try {
                 await db.collection("clientes").doc(editingClientId).delete();
 
-                currentPage = 0; 
-                await loadClientsFromFirestore();
-                clearForm(); 
+                currentPage = 0; // Volta para a primeira página após a exclusão
+                await loadClientsFromFirestore(); // Recarrega a tabela
+                clearForm(); // Limpa o formulário
                 showMessage('Cliente excluído com sucesso!', 'success');
             } catch (error) {
                 console.error('Erro ao excluir documento do Firestore:', error);
@@ -914,48 +1037,58 @@
             }
         });
 
+        // Aplica os filtros e pesquisa
         applyFiltersButton.addEventListener('click', () => {
-            currentPage = 0; 
+            currentPage = 0; // Reinicia a paginação ao aplicar filtros
             loadClientsFromFirestore();
         });
         clearFiltersButton.addEventListener('click', () => {
+            // Limpa todos os campos de filtro e pesquisa
             filterStatusField.value = '';
             filterDateFromField.value = '';
             filterDateToField.value = '';
-            generalSearchInput.value = ''; 
-            currentPage = 0; 
-            loadClientsFromFirestore(); 
+            generalSearchInput.value = '';
+            currentPage = 0; // Reinicia a paginação
+            loadClientsFromFirestore(); // Recarrega a tabela sem filtros
             showMessage('Filtros limpos!', 'info');
         });
 
+        // Inicia a pesquisa geral
         searchButton.addEventListener('click', () => {
-            currentPage = 0; 
+            currentPage = 0; // Reinicia a paginação ao fazer uma nova pesquisa
             loadClientsFromFirestore();
         });
 
+        // Navegação de paginação
         prevPageButton.addEventListener('click', () => {
             if (currentPage > 0) {
                 currentPage--;
-                loadClientsFromFirestore('prev'); 
+                loadClientsFromFirestore('prev'); // Carrega a página anterior
             }
         });
 
         nextPageButton.addEventListener('click', () => {
             currentPage++;
-            loadClientsFromFirestore('next'); 
+            loadClientsFromFirestore('next'); // Carrega a próxima página
         });
 
+        /**
+         * Atualiza o estado dos botões de paginação (Anterior/Próxima).
+         */
         function updatePaginationButtons() {
+            // Desabilita o botão "Anterior" na primeira página
             prevPageButton.disabled = (currentPage === 0);
 
-            // Para saber se há uma próxima página, precisamos buscar um documento a mais
+            // Para saber se há uma próxima página, precisaríamos buscar um documento a mais
             // ou ter a contagem total de documentos que correspondem aos filtros.
             // Para manter a simplicidade, vamos desabilitar 'Próxima' se a página atual não tiver o número máximo de clientes.
             // Isso pode significar que o botão 'Próxima' ficará desabilitado prematuramente se a última página tiver menos de CLIENTES_POR_PAGINA.
-            // Uma solução mais robusta envolve uma contagem separada ou buscar um item a mais.
+            // Uma solução mais robusta envolveria uma contagem separada de documentos que satisfazem os filtros
+            // ou buscar um item a mais (limit + 1) e verificar se há resultados para o próximo.
             nextPageButton.disabled = (clients.length < CLIENTES_POR_PAGINA);
         }
 
+        // Carrega os clientes do Firestore quando a página é totalmente carregada
         document.addEventListener('DOMContentLoaded', loadClientsFromFirestore);
     </script>
 </body>
