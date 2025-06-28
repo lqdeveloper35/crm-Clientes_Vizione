@@ -38,20 +38,20 @@
             position: sticky;
             left: 0;
             background-color: #f3f4f6; /* Define explicitamente o fundo para o thead fixo */
-            z-index: 1; /* Garante que fique acima de outras células durante a rolagem */
+            z-index: 2; /* Increased z-index to ensure it's always on top */
             border-right: 1px solid #e5e7eb; /* Opcional: Adiciona uma linha separadora */
         }
         #clientTable td:first-child {
             position: sticky;
             left: 0;
-            background-color: #fff; /* Define explicitamente o fundo para as células fixas */
-            z-index: 1; /* Garante que fique acima de outras células durante a rolagem */
+            background-color: inherit; /* Make the sticky cell inherit the row's background */
+            z-index: 1; /* Garante que fique acima de outras células durante a rolagem, mas abaixo do thead sticky */
             border-right: 1px solid #e5e7eb; /* Opcional: Adiciona uma linha separadora */
         }
-        /* Adjust padding for visual alignment with the fixed column */
+        /* Ajusta o padding para alinhamento visual com a coluna fixa */
         #clientTable th:not(:first-child),
         #clientTable td:not(:first-child) {
-            padding-left: 1rem; /* Adjust as needed */
+            padding-left: 1rem; /* Ajusta conforme necessário */
         }
         /* Estilo para o spinner de carregamento */
         .loading-spinner {
@@ -126,6 +126,10 @@
         }
         .contract-signed-row {
             background-color: #dcfce7; /* bg-green-100 */
+        }
+        /* Garante que o background padrão da linha seja branco, se não for sobrescrito */
+        #clientTable tbody tr {
+            /* background-color será definido no JS via classes Tailwind */
         }
     </style>
 </head>
@@ -236,7 +240,7 @@
             <div class="mb-4 p-3 md:p-4 bg-gray-50 rounded-lg border border-gray-200 flex flex-wrap items-end gap-2 md:gap-4">
                 <div class="flex-1 min-w-[150px]">
                     <label for="filterStatus" class="block text-sm font-medium text-gray-700 mb-1">Filtrar por Status:</label>
-                    <select id="filterStatus"
+                    <select id="filterStatus" multiple size="5"
                             class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
                         <option value="">Todos</option>
                         <option value="Novo Contato">Novo Contato</option>
@@ -310,7 +314,7 @@
                             <th scope="col" class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider rounded-tr-lg">Observações</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-gray-200" id="clientTableBody">
+                    <tbody class="divide-y divide-gray-200" id="clientTableBody">
                         </tbody>
                 </table>
             </div>
@@ -624,7 +628,7 @@
 
         /**
          * Carrega os clientes do Firestore com base nos filtros e na paginação.
-         * @param {string} direction - Direção da paginação ('current', 'next', 'prev').
+         * @param {string} direction - Direção da paginaação ('current', 'next', 'prev').
          */
         async function loadClientsFromFirestore(direction = 'current') {
             // Salva a posição atual do scroll para restaurar após a renderização
@@ -635,15 +639,12 @@
                 let clientsRef = db.collection("clientes");
 
                 // Pega os valores dos filtros
-                const filterStatus = filterStatusField.value;
+                const selectedFilterStatuses = Array.from(filterStatusField.selectedOptions).map(option => option.value);
                 const filterDateFrom = filterDateFromField.value;
                 const filterDateTo = filterDateToField.value;
                 const generalSearchTerm = generalSearchInput.value.trim().toLowerCase();
 
-                // Aplica filtros se existirem
-                if (filterStatus) {
-                    clientsRef = clientsRef.where('status', '==', filterStatus);
-                }
+                // Aplica filtros de data diretamente na query Firestore
                 if (filterDateFrom) {
                     const dateFrom = new Date(filterDateFrom + 'T00:00:00');
                     clientsRef = clientsRef.where('lastContactDate', '>=', dateFrom);
@@ -699,10 +700,18 @@
                     lastVisibleDoc = null;
                 }
 
-                let clientsToRender = [];
-                // Aplica a pesquisa geral em memória (após a filtragem do Firestore)
+                let clientsToRender = fetchedClients;
+
+                // Aplica filtros de status em memória se múltiplos status forem selecionados ou "Todos" não for a única opção
+                if (selectedFilterStatuses.length > 0 && !(selectedFilterStatuses.length === 1 && selectedFilterStatuses[0] === "")) {
+                    clientsToRender = clientsToRender.filter(client => 
+                        selectedFilterStatuses.includes(client.status)
+                    );
+                }
+
+                // Aplica a pesquisa geral em memória (após a filtragem do Firestore e de status)
                 if (generalSearchTerm) {
-                    fetchedClients.forEach(clientData => {
+                    clientsToRender = clientsToRender.filter(clientData => {
                         // Converte Timestamps para objetos Date para facilitar a formatação na busca
                         if (clientData.createdAt && typeof clientData.createdAt.toDate === 'function') {
                             clientData.createdAt = clientData.createdAt.toDate();
@@ -736,14 +745,9 @@
                         searchableFields.push(formatDateToBrazilian(clientData.contractStartDate).toLowerCase());
                         searchableFields.push(calculateContractDuration(clientData.contractStartDate).toLowerCase());
 
-
                         // Verifica se algum campo pesquisável inclui o termo de pesquisa
-                        if (searchableFields.some(field => field.includes(generalSearchTerm))) {
-                            clientsToRender.push(clientData);
-                        }
+                        return searchableFields.some(field => field.includes(generalSearchTerm));
                     });
-                } else {
-                    clientsToRender = fetchedClients; // Se não houver pesquisa, todos os clientes filtrados são renderizados
                 }
 
                 clients = clientsToRender; // Atualiza o array global de clientes
@@ -772,7 +776,9 @@
 
             clients.forEach((client, index) => {
                 const row = document.createElement('tr');
-                row.classList.add('hover:bg-gray-50', 'cursor-pointer', 'transition', 'duration-150', 'ease-in-out');
+                // Adiciona classes base que não definem cor de fundo para a linha,
+                // deixando a cor ser definida pelas classes condicionais ou pelo Tailwind bg-white abaixo.
+                row.classList.add('cursor-pointer', 'transition', 'duration-150', 'ease-in-out'); // Removed hover:bg-gray-50
                 row.dataset.index = index; // Armazena o índice do cliente no dataset da linha
                 row.dataset.id = client.id; // Armazena o ID do documento do Firestore
 
@@ -781,6 +787,9 @@
                     row.classList.add('contract-signed-row');
                 } else if (client.salesMeetingDate) {
                     row.classList.add('meeting-scheduled-row');
+                } else {
+                    // Se não houver data de reunião ou contrato, define o fundo como branco padrão
+                    row.classList.add('bg-white'); 
                 }
 
                 const formattedLastContactDate = formatDateToBrazilian(client.lastContactDate);
@@ -865,6 +874,7 @@
                 email: emailField.value.trim(),
                 website: websiteField.value.trim(),
                 address: addressField.value.trim(),
+                // Se o campo de data estiver vazio, define como null para não salvar um valor vazio no Firestore
                 salesMeetingDate: salesMeetingDateField.value ? new Date(salesMeetingDateField.value + 'T00:00:00') : null,
                 contractStartDate: contractStartDateField.value ? new Date(contractStartDateField.value + 'T00:00:00') : null,
                 status: statusField.value,
@@ -954,6 +964,7 @@
                 email: emailField.value.trim(),
                 website: websiteField.value.trim(),
                 address: addressField.value.trim(),
+                // Se o campo de data estiver vazio, define como null para não salvar um valor vazio no Firestore
                 salesMeetingDate: salesMeetingDateField.value ? new Date(salesMeetingDateField.value + 'T00:00:00') : null,
                 contractStartDate: contractStartDateField.value ? new Date(contractStartDateField.value + 'T00:00:00') : null,
                 status: statusField.value,
@@ -981,9 +992,9 @@
                 await loadClientsFromFirestore(); // Recarrega a tabela para exibir as atualizações
                 clearForm(); // Limpa o formulário
                 showMessage('Cliente atualizado no Firestore com sucesso!', 'success');
-            } catch (error) {
+            }  catch (error) {
                 console.error('Erro ao atualizar documento no Firestore:', error);
-                showMessage(`Erro ao atualizar cliente: ${error.message}. Verifique as regras de segurança.`, 'error');
+                showMessage(`Erro ao atualizar cliente no Firestore: ${error.message}. Verifique as regras de segurança.`, 'error');
             } finally {
                 updateClientButton.disabled = false;
                 updateLoadingSpinner.classList.add('hidden');
@@ -995,6 +1006,9 @@
             clearForm();
             showMessage('Edição cancelada. Formulário limpo.', 'info');
         });
+
+        // Flag para controlar se a ação de salvar/cancelar foi iniciada (para evitar conflito com blur)
+        let isActionTriggered = false;
 
         // Lida com cliques na tabela para edição rápida ou preenchimento do formulário
         clientTableBody.addEventListener('click', (event) => {
@@ -1051,7 +1065,7 @@
                     inputElement = document.createElement('input');
                     inputElement.type = 'date';
                     inputElement.classList.add('quick-edit-input');
-                    // Define o valor da data (formato ISO YYYY-MM-DD)
+                    // Define o valor da data (formato ISOAPAC-MM-DD)
                     // Usa data-value para preencher o input corretamente
                     inputElement.value = clickedCell.dataset.value || '';
                 }
@@ -1065,33 +1079,57 @@
                 inputElement.focus(); // Foca no input
 
                 // Listener para o botão Salvar da edição rápida
+                saveButton.addEventListener('mousedown', (e) => { // Usa mousedown para capturar antes do blur
+                    e.preventDefault(); // Impede o blur imediato no input
+                    isActionTriggered = true; // Define a flag de ação
+                });
                 saveButton.addEventListener('click', async (e) => {
                     e.stopPropagation(); // Impede a propagação do clique
                     await updateQuickEditField(clientId, field, inputElement.value);
+                    // Após a atualização, a tabela será recarregada, redefinindo o conteúdo da célula
+                    clickedCell.innerHTML = originalCellContent; // Temporariamente restaura antes do re-render completo
                 });
 
                 // Listener para o botão Cancelar da edição rápida
-                cancelButton.addEventListener('click', (e) => {
+                cancelButton.addEventListener('mousedown', (e) => { // Usa mousedown para capturar antes do blur
+                    e.preventDefault(); // Impede o blur imediato no input
+                    isActionTriggered = true; // Define a flag de ação
+                });
+                cancelButton.addEventListener('click', async (e) => {
                     e.stopPropagation();
-                    clickedCell.innerHTML = originalCellContent; // Restaura o conteúdo original
+                    const originalDatasetValue = clickedCell.dataset.value || ''; // Get original data-value, or empty string
+
+                    // Comportamento ajustado para o botão 'X':
+                    // Se a célula tinha um valor original (data já salva), ao clicar 'X', tenta deletar do Firestore.
+                    // Se a célula estava vazia ou o usuário está cancelando uma nova entrada, apenas reverte a UI.
+                    if (field.includes('Date') && originalDatasetValue !== '') { // Se for um campo de data e já tinha valor
+                        await updateQuickEditField(clientId, field, ""); // Envia string vazia para ativar o FieldValue.delete()
+                    } else {
+                        // Para campos de status ou datas que não tinham valor original, ou para cancelar uma digitação
+                        clickedCell.innerHTML = originalCellContent;
+                    }
+                    isActionTriggered = false; // Reseta a flag após o processamento
                 });
 
                 // Listener para quando o input perde o foco (blur)
                 inputElement.addEventListener('blur', () => {
-                    // Restaura o conteúdo original se o input ainda estiver na célula
-                    if (clickedCell.contains(inputElement)) {
+                    if (!isActionTriggered) { // Só restaura se o blur não foi causado por um clique em salvar/cancelar
                         clickedCell.innerHTML = originalCellContent;
                     }
+                    isActionTriggered = false; // Reseta a flag
                 });
                 
                 // Listener para teclas (Enter para salvar, Esc para cancelar)
                 inputElement.addEventListener('keydown', async (e) => {
                     if (e.key === 'Enter') {
                         e.preventDefault(); // Impede a quebra de linha em textareas ou envio de formulário
+                        isActionTriggered = true; // Define a flag de ação
                         await updateQuickEditField(clientId, field, inputElement.value);
+                        clickedCell.innerHTML = originalCellContent; // Restaura após salvar
                     } else if (e.key === 'Escape') {
                         e.preventDefault();
-                        clickedCell.innerHTML = originalCellContent; // Restaura o conteúdo original
+                        isActionTriggered = true; // Define a flag de ação
+                        clickedCell.innerHTML = originalCellContent; // Restaura
                     }
                 });
 
@@ -1112,16 +1150,38 @@
             let initialScrollTop = clientTableBody.parentElement.scrollTop; // Salva a posição do scroll
             try {
                 let updateData = {};
+                const trimmedNewValue = newValue.trim(); // Garante que o valor está limpo de espaços em branco
+
                 // Converte a data para um objeto Date se o campo for de data
                 if (['lastContactDate', 'salesMeetingDate', 'contractStartDate'].includes(field)) {
-                    updateData[field] = newValue ? new Date(newValue + 'T00:00:00') : null;
+                    if (trimmedNewValue) {
+                        const dateObj = new Date(trimmedNewValue + 'T00:00:00');
+                        if (isNaN(dateObj.getTime())) {
+                            // Se o parse da data falhar, remove o campo do Firestore
+                            console.error(`Data inválida detectada para o campo ${field}: ${trimmedNewValue}`);
+                            showMessage(`Data inválida para o campo ${field}. O campo será limpo.`, 'error');
+                            updateData[field] = firebase.firestore.FieldValue.delete();
+                        } else {
+                            updateData[field] = dateObj;
+                        }
+                    } else {
+                        // Se o valor for vazio, define FieldValue.delete() para remover o campo
+                        updateData[field] = firebase.firestore.FieldValue.delete();
+                    }
                 } else {
-                    updateData[field] = newValue;
+                    updateData[field] = trimmedNewValue; // Garante que outros campos de texto também são trimados
                 }
                 updateData.updatedAt = firebase.firestore.FieldValue.serverTimestamp(); // Atualiza o timestamp de modificação
 
-                await db.collection("clientes").doc(clientId).update(updateData);
-                showMessage('Campo atualizado com sucesso!', 'success');
+                // Verifica se há dados para atualizar antes de chamar o update
+                // Isso evita chamadas de update desnecessárias e ajuda a depurar se algo está vazio
+                if (Object.keys(updateData).length > 1 || (Object.keys(updateData).length === 1 && updateData.hasOwnProperty('updatedAt') && field === 'updatedAt')) {
+                    await db.collection("clientes").doc(clientId).update(updateData);
+                    showMessage('Campo atualizado com sucesso!', 'success');
+                } else if (Object.keys(updateData).length === 0) {
+                    showMessage('Nenhuma alteração detectada para salvar.', 'info');
+                }
+                
                 await loadClientsFromFirestore(); // Recarrega a tabela para exibir a mudança
                 clientTableBody.parentElement.scrollTop = initialScrollTop; // Restaura a posição do scroll
             } catch (error) {
