@@ -144,7 +144,7 @@
             </label>
             <textarea id="rawDataInput" rows="6" md:rows="8"
                       class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 placeholder-gray-400"
-                      placeholder="Ex: Nome da Empresa: Minha Loja Ltda.&#10;Telefone: (11) 98765-4321&#10;Site: www.minhaloja.com.br&#10;Endereço: Rua Exemplo, 123, Centro, Cidade - SP&#10;Email: contato@minhaloja.com.br&#10;Nome de Contato: João Silva&#10;Data de Reunião para Vendas: 2024-07-01&#10;Data de Início do Contrato: 2023-01-15&#10;Status: Novo Contato&#10;Último Contato: 2023-05-15"></textarea>
+                      placeholder="Ex: Nome da Empresa: Minha Loja Ltda.&#10;Telefone: (11) 98765-4321&#10;Site: www.minhaloja.com.br&#10;Endereço: Rua Exemplo, 123, Centro, Cidade - SP&#10;Email: contato@minhaloja.com.br&#10;Nome de Contato: João Silva&#10;Data de Reunião para Vendas: 2024-07-01&#10;Data de Início do Contrato: 2023-01-15&#10;Status: Novo Cliente&#10;Último Contato: 2023-05-15"></textarea>
             <button id="fillFormButton"
                     class="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
                 Preencher Formulário
@@ -198,10 +198,9 @@
                     <label for="status" class="block text-sm font-medium text-gray-700 mb-1">Status:</label>
                     <select id="status"
                             class="w-full p-2 md:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
-                        <option value="Novo Contato">Novo Contato</option>
+                        <option value="Novo Cliente">Novo Cliente</option>
                         <option value="Em Andamento">Em Andamento</option>
                         <option value="Aguardando Contato">Aguardando Contato</option>
-                        <option value="Novo Cliente">Novo Cliente</option>
                         <option value="Perdido">Perdido</option>
                     </select>
                 </div>
@@ -240,10 +239,9 @@
             <div class="mb-4 p-3 md:p-4 bg-gray-50 rounded-lg border border-gray-200 flex flex-wrap items-end gap-2 md:gap-4">
                 <div class="flex-1 min-w-[150px]">
                     <label for="filterStatus" class="block text-sm font-medium text-gray-700 mb-1">Filtrar por Status:</label>
-                    <select id="filterStatus" multiple size="5"
+                    <select id="filterStatus" multiple size="4"
                             class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900">
                         <option value="">Todos</option>
-                        <option value="Novo Contato">Novo Contato</option>
                         <option value="Em Andamento">Em Andamento</option>
                         <option value="Aguardando Contato">Aguardando Contato</option>
                         <option value="Novo Cliente">Novo Cliente</option>
@@ -441,7 +439,7 @@
             addressField.value = '';
             salesMeetingDateField.value = ''; // Limpa o novo campo
             contractStartDateField.value = ''; // Limpa o novo campo
-            statusField.value = 'Novo Contato'; // Define o status padrão
+            statusField.value = 'Novo Cliente'; // Define o status padrão para 'Novo Cliente'
             lastContactDateField.value = '';
             notesField.value = '';
             editingClientId = null; // Reseta o ID do cliente em edição
@@ -476,7 +474,7 @@
                 contractStartDateField.value = '';
             }
 
-            statusField.value = client.status || 'Novo Contato';
+            statusField.value = client.status || 'Novo Cliente'; // Define o status padrão para 'Novo Cliente'
             if (client.lastContactDate && client.lastContactDate.toDate) {
                 lastContactDateField.value = client.lastContactDate.toDate().toISOString().split('T')[0];
             } else {
@@ -545,16 +543,16 @@
             }
 
             // Atualiza o regex para capturar os novos valores de status
-            const statusMatch = rawText.match(/(?:Status:)\s*(Novo Contato|Em Andamento|Aguardando Contato|Novo Cliente|Perdido)/i);
+            const statusMatch = rawText.match(/(?:Status:)\s*(Em Andamento|Aguardando Contato|Novo Cliente|Perdido)/i);
             if (statusMatch) {
                 data.status = statusMatch[1].trim(); // Pega o valor exato que corresponde
                 // Garante que o status é um dos valores válidos
-                const validStatuses = ['Novo Contato', 'Em Andamento', 'Aguardando Contato', 'Novo Cliente', 'Perdido'];
+                const validStatuses = ['Em Andamento', 'Aguardando Contato', 'Novo Cliente', 'Perdido'];
                 if (!validStatuses.includes(data.status)) {
-                    data.status = 'Novo Contato'; // Define para 'Novo Contato' se o status for inválido
+                    data.status = 'Novo Cliente'; // Define para 'Novo Cliente' se o status for inválido
                 }
             } else {
-                data.status = 'Novo Contato'; // Padrão se não encontrado
+                data.status = 'Novo Cliente'; // Padrão se não encontrado
             }
             const lastContactDateMatch = rawText.match(/(?:Último Contato:|Data Contato:)\s*(\d{4}-\d{2}-\d{2})/i);
             if (lastContactDateMatch) {
@@ -778,14 +776,14 @@
                 const row = document.createElement('tr');
                 // Adiciona classes base que não definem cor de fundo para a linha,
                 // deixando a cor ser definida pelas classes condicionais ou pelo Tailwind bg-white abaixo.
-                row.classList.add('cursor-pointer', 'transition', 'duration-150', 'ease-in-out'); // Removed hover:bg-gray-50
+                row.classList.add('cursor-pointer', 'transition', 'duration-150', 'ease-in-out'); 
                 row.dataset.index = index; // Armazena o índice do cliente no dataset da linha
                 row.dataset.id = client.id; // Armazena o ID do documento do Firestore
 
                 // Adiciona classes condicionais para destaque de linha
                 if (client.contractStartDate) {
                     row.classList.add('contract-signed-row');
-                } else if (client.salesMeetingDate) {
+                } else if (client.status === 'Em Andamento') { // Changed condition for yellow highlight
                     row.classList.add('meeting-scheduled-row');
                 } else {
                     // Se não houver data de reunião ou contrato, define o fundo como branco padrão
@@ -807,7 +805,7 @@
                     <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700 quick-edit-date" data-field="salesMeetingDate" data-value="${client.salesMeetingDate ? (client.salesMeetingDate instanceof Date ? client.salesMeetingDate.toISOString().split('T')[0] : (typeof client.salesMeetingDate.toDate === 'function' ? client.salesMeetingDate.toDate().toISOString().split('T')[0] : '')) : ''}">${formattedSalesMeetingDate}</td>
                     <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700 quick-edit-date" data-field="contractStartDate" data-value="${client.contractStartDate ? (client.contractStartDate instanceof Date ? client.contractStartDate.toISOString().split('T')[0] : (typeof client.contractStartDate.toDate === 'function' ? client.contractStartDate.toDate().toISOString().split('T')[0] : '')) : ''}">${formattedContractStartDate}</td>
                     <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700">${contractDuration}</td>
-                    <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700 quick-edit-status" data-field="status" data-value="${client.status || 'Novo Contato'}">${client.status || 'Novo Contato'}</td>
+                    <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700 quick-edit-status" data-field="status" data-value="${client.status || 'Novo Cliente'}">${client.status || 'Novo Cliente'}</td>
                     <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700 quick-edit-date" data-field="lastContactDate" data-value="${client.lastContactDate ? (client.lastContactDate instanceof Date ? client.lastContactDate.toISOString().split('T')[0] : (typeof client.lastContactDate.toDate === 'function' ? client.lastContactDate.toDate().toISOString().split('T')[0] : '')) : ''}">${formattedLastContactDate}</td>
                     <td class="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-sm text-gray-700 rounded-br-lg">${client.notes || ''}</td>
                 `;
@@ -1053,14 +1051,13 @@
                     inputElement.classList.add('quick-edit-input');
                     // Opções do select para status (atualizado)
                     inputElement.innerHTML = `
-                        <option value="Novo Contato">Novo Contato</option>
                         <option value="Em Andamento">Em Andamento</option>
                         <option value="Aguardando Contato">Aguardando Contato</option>
                         <option value="Novo Cliente">Novo Cliente</option>
                         <option value="Perdido">Perdido</option>
                     </select>
                     `;
-                    inputElement.value = clientData.status || 'Novo Contato'; // Define o valor atual
+                    inputElement.value = clientData.status || 'Novo Cliente'; // Define o valor atual
                 } else if (clickedCell.classList.contains('quick-edit-date')) {
                     inputElement = document.createElement('input');
                     inputElement.type = 'date';
@@ -1102,10 +1099,13 @@
                     // Comportamento ajustado para o botão 'X':
                     // Se a célula tinha um valor original (data já salva), ao clicar 'X', tenta deletar do Firestore.
                     // Se a célula estava vazia ou o usuário está cancelando uma nova entrada, apenas reverte a UI.
-                    if (field.includes('Date') && originalDatasetValue !== '') { // Se for um campo de data e já tinha valor
-                        await updateQuickEditField(clientId, field, ""); // Envia string vazia para ativar o FieldValue.delete()
-                    } else {
-                        // Para campos de status ou datas que não tinham valor original, ou para cancelar uma digitação
+                    if (field.includes('Date')) { // Se for um campo de data
+                        if (originalDatasetValue !== '') { // E já tinha um valor salvo, então apaga do Firestore
+                            await updateQuickEditField(clientId, field, ""); // Envia string vazia para ativar o FieldValue.delete()
+                        } else { // Se não tinha valor original, apenas cancela a edição na UI
+                            clickedCell.innerHTML = originalCellContent;
+                        }
+                    } else { // Para campos de status ou outros campos que não sejam data
                         clickedCell.innerHTML = originalCellContent;
                     }
                     isActionTriggered = false; // Reseta a flag após o processamento
