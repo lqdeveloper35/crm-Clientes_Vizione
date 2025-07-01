@@ -196,7 +196,7 @@
             </label>
             <textarea id="rawDataInput" rows="6" md:rows="8"
                       class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 placeholder-gray-400"
-                      placeholder="Ex: Nome da Empresa: Minha Loja Ltda.&#10;Telefone: (11) 98765-4321&#10;Site: www.minhaloja.com.br&#10;Endereço: Rua Exemplo, 123, Centro, Cidade - SP&#10;Email: contato@minhaloja.com.br&#10;Nome de Contato: João Silva&#10;Data do Primeiro Contato: 2024-07-01&#10;Data da Consultoria Gratuita: 2024-07-05&#10;Horário da Consultoria Gratuita: 10:00&#10;Data da Segunda Reunião: 2024-07-10&#10;Horário da Segunda Reunião: 14:30&#10;Data de Início do Contrato: 2023-01-15&#10;Status: Novo Cliente&#10;Último Contato: 2023-05-15"></textarea>
+                      placeholder="Ex: Nome da Empresa: Minha Loja Ltda.&#10;Telefone: (11) 98765-4321&#10;Site: www.minhaloja.com.br&#10;Endereço: Rua Exemplo, 123, Centro, Cidade - SP&#10;Email: contato@minhaloja.com.br&#10;Nome de Contato: João Silva&#10;Data do Primeiro Contato: 2024-07-01&#10;Data da Consultoria Gratuita: 2024-07-05&#10;Horário da Consultoria Gratuita: 10:00&#10;Data da Segunda Reunião: 2024-07-10&#10;Horário da Segunda Reunião: 14:30&#10;Data de Início do Contrato: 2023-01-15&#10;Status: Novo Cliente&#10;Último Contato: 2023-05-15&#10;&#10;Dica para ditado por voz: Fale o nome do campo seguido da informação. Ex: 'Nome da empresa: Minha Loja Ltda. Telefone: 11 98765-4321.'"></textarea>
             
             <div class="mt-3 flex flex-col md:flex-row justify-center items-center gap-3">
                 <button id="fillFormButton"
@@ -206,6 +206,10 @@
                 <button id="voiceInputButton"
                         class="w-full md:w-40 py-2 px-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
                     Falar para Preencher
+                </button>
+                <button id="formatDataButton"
+                        class="w-full md:w-40 py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
+                    Formatar Dados
                 </button>
             </div>
         </div>
@@ -457,6 +461,7 @@
         const rawDataInput = document.getElementById('rawDataInput');
         const fillFormButton = document.getElementById('fillFormButton');
         const voiceInputButton = document.getElementById('voiceInputButton'); // Novo botão de input de voz
+        const formatDataButton = document.getElementById('formatDataButton'); // Novo botão de formatação
         const clientForm = document.getElementById('clientForm');
         const addClientButton = document.getElementById('addClientButton');
         const updateClientButton = document.getElementById('updateClientButton');
@@ -508,6 +513,7 @@
         // Variáveis para o reconhecimento de fala
         let recognition;
         let isRecognizing = false;
+        let finalTranscriptAccumulated = ''; // Variável para acumular o texto final
 
         /**
          * Exibe uma mensagem para o usuário.
@@ -1415,18 +1421,18 @@
 
             recognition.onresult = (event) => {
                 let interimTranscript = '';
-                let finalTranscript = '';
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
                     if (event.results[i].isFinal) {
-                        finalTranscript += event.results[i][0].transcript;
+                        finalTranscriptAccumulated += event.results[i][0].transcript + ' '; // Acumula o texto final
                     } else {
                         interimTranscript += event.results[i][0].transcript;
                     }
                 }
-                // Atualiza a área de texto com o texto final e provisório
-                rawDataInput.value = finalTranscript + interimTranscript;
+                // Atualiza a área de texto com o texto final acumulado mais o texto provisório atual
+                rawDataInput.value = finalTranscriptAccumulated + interimTranscript;
+                rawDataInput.scrollTop = rawDataInput.scrollHeight; // Rola para o final
                 console.log("[SpeechRecognition] Resultado provisório:", interimTranscript);
-                console.log("[SpeechRecognition] Resultado final:", finalTranscript);
+                console.log("[SpeechRecognition] Resultado final acumulado:", finalTranscriptAccumulated);
             };
 
             recognition.onerror = (event) => {
@@ -1442,6 +1448,15 @@
                 } else {
                     showMessage(`Erro no reconhecimento de fala: ${event.error}`, 'error');
                 }
+                // Tenta reiniciar o reconhecimento se a interrupção não for por erro de permissão ou parada intencional
+                if (event.error !== 'not-allowed' && voiceInputButton.dataset.mode === 'continuous') {
+                    console.log("[SpeechRecognition] Tentando reiniciar devido a erro não crítico.");
+                    setTimeout(() => {
+                        if (voiceInputButton.dataset.mode === 'continuous') { // Verifica novamente
+                            recognition.start();
+                        }
+                    }, 500);
+                }
             };
 
             recognition.onend = () => {
@@ -1449,8 +1464,18 @@
                 voiceInputButton.textContent = 'Falar para Preencher';
                 voiceInputButton.classList.remove('bg-red-600');
                 voiceInputButton.classList.add('bg-purple-600');
-                showMessage('Reconhecimento de fala finalizado.', 'info');
-                console.log("[SpeechRecognition] Reconhecimento finalizado.");
+                showMessage('Reconhecimento de fala finalizado (pausado).', 'info');
+                console.log("[SpeechRecognition] Reconhecimento finalizado (pausado).");
+
+                // Reinicia o reconhecimento se o modo contínuo estiver ativo
+                if (voiceInputButton.dataset.mode === 'continuous') {
+                    console.log("[SpeechRecognition] Reiniciando reconhecimento automaticamente.");
+                    setTimeout(() => {
+                        if (voiceInputButton.dataset.mode === 'continuous') { // Verifica novamente antes de reiniciar
+                            recognition.start();
+                        }
+                    }, 500); // Pequeno atraso antes de reiniciar
+                }
             };
         }
 
@@ -1462,12 +1487,118 @@
             }
             if (isRecognizing) {
                 recognition.stop();
-                console.log("[VoiceInputButton] Parando reconhecimento.");
+                voiceInputButton.dataset.mode = 'stopped'; // Marca como parado intencionalmente
+                console.log("[VoiceInputButton] Parando reconhecimento intencionalmente.");
             } else {
-                rawDataInput.value = ''; // Limpa a área de texto antes de iniciar
+                // Se não está reconhecendo, é um novo início ou continuação
+                // Se o campo está vazio, limpa o acumulador para uma nova sessão limpa
+                if (rawDataInput.value.trim() === '') {
+                    finalTranscriptAccumulated = '';
+                } else {
+                    // Se o campo já tem conteúdo, inicia o acumulador com ele
+                    finalTranscriptAccumulated = rawDataInput.value.trim() + ' ';
+                }
+                voiceInputButton.dataset.mode = 'continuous'; // Marca como modo contínuo
                 recognition.start();
-                console.log("[VoiceInputButton] Iniciando reconhecimento.");
+                console.log("[VoiceInputButton] Iniciando reconhecimento (modo contínuo).");
             }
+        });
+
+        /**
+         * Formata o texto bruto na textarea adicionando rótulos explícitos.
+         */
+        formatDataButton.addEventListener('click', () => {
+            console.log("[formatDataButton] Clicado. Formatando dados...");
+            const rawText = rawDataInput.value;
+            const lines = rawText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+            let formattedText = [];
+
+            const fieldLabels = {
+                companyName: 'Nome da Empresa:',
+                contactName: 'Nome de Contato:',
+                phone: 'Telefone:',
+                email: 'Email:',
+                website: 'Site:',
+                address: 'Endereço:',
+                firstContactDate: 'Data do Primeiro Contato:',
+                freeConsultationDate: 'Data da Consultoria Gratuita:',
+                freeConsultationTime: 'Horário da Consultoria Gratuita:',
+                secondMeetingDate: 'Data da Segunda Reunião:',
+                secondMeetingTime: 'Horário da Segunda Reunião:',
+                contractStartDate: 'Data de Início do Contrato:',
+                status: 'Status:',
+                lastContactDate: 'Último Contato:',
+                notes: 'Observações:'
+            };
+
+            const tempParsedData = {};
+            let currentField = null;
+
+            // Tentativa de identificar campos e seus valores
+            lines.forEach(line => {
+                let foundMatch = false;
+                for (const key in fieldLabels) {
+                    const label = fieldLabels[key];
+                    const labelRegex = new RegExp(`^${label}\\s*(.*)`, 'i');
+                    const match = line.match(labelRegex);
+                    if (match) {
+                        tempParsedData[key] = match[1].trim();
+                        currentField = key;
+                        foundMatch = true;
+                        break;
+                    }
+                }
+                // Se não encontrou um rótulo, tenta inferir com base no conteúdo
+                if (!foundMatch) {
+                    if (line.includes('@') && !tempParsedData.email) {
+                        tempParsedData.email = line;
+                    } else if (/\b(?:\(?\d{2}\)?[\s.-]?)?\d{4,5}[-\s.]?\d{4}\b/.test(line) && !tempParsedData.phone) {
+                        tempParsedData.phone = line;
+                    } else if (/(?:https?:\/\/|www\.)/.test(line) && !tempParsedData.website) {
+                        tempParsedData.website = line;
+                    } else if (/\b(\d{4}-\d{2}-\d{2})\b|\b(\d{2}\/\d{2}\/\d{4})\b/.test(line) && !tempParsedData.firstContactDate) {
+                        // Prioriza YYYY-MM-DD
+                        let dateMatch = line.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+                        if (dateMatch) {
+                            tempParsedData.firstContactDate = dateMatch[1];
+                        } else {
+                            dateMatch = line.match(/\b(\d{2}\/\d{2}\/\d{4})\b/);
+                            if (dateMatch) {
+                                const parts = dateMatch[1].split('/');
+                                tempParsedData.firstContactDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                            }
+                        }
+                    } else if (/\b(\d{2}:\d{2})\b/.test(line) && !tempParsedData.freeConsultationTime) {
+                        tempParsedData.freeConsultationTime = line.match(/\b(\d{2}:\d{2})\b/)[1];
+                    } else if (line.toLowerCase().includes('empresa') && !tempParsedData.companyName) {
+                        tempParsedData.companyName = line;
+                    } else if (line.toLowerCase().includes('contato') && !tempParsedData.contactName) {
+                        tempParsedData.contactName = line;
+                    } else if (line.toLowerCase().includes('endereço') || line.toLowerCase().includes('rua') || line.toLowerCase().includes('avenida') && !tempParsedData.address) {
+                        tempParsedData.address = line;
+                    } else {
+                        // Se não for nenhum dos acima, adiciona às notas ou ao campo atual
+                        if (currentField && !tempParsedData[currentField]) {
+                            tempParsedData[currentField] = line;
+                        } else if (!tempParsedData.notes) {
+                            tempParsedData.notes = line;
+                        } else {
+                            tempParsedData.notes += '\n' + line;
+                        }
+                    }
+                }
+            });
+
+            // Reconstroi o texto com a formatação desejada
+            for (const key in fieldLabels) {
+                if (tempParsedData[key]) {
+                    formattedText.push(`${fieldLabels[key]} ${tempParsedData[key]}`);
+                }
+            }
+
+            rawDataInput.value = formattedText.join('\n');
+            showMessage('Dados formatados com sucesso!', 'success');
+            console.log("[formatDataButton] Dados formatados.");
         });
 
         // Função principal para inicializar Firebase e autenticação
