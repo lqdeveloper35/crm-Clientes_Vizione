@@ -190,11 +190,6 @@
     <div id="crmApp" class="bg-white rounded-xl shadow-lg">
         <h1 class="text-2xl md:text-3xl font-bold text-center text-gray-800 py-6">Cadastro de Clientes CRM</h1>
 
-        <!-- Removido o display do ID de Usuário para simplificar a interface -->
-        <!-- <div class="mb-2 p-4 md:p-6 bg-white rounded-lg border border-gray-200">
-            <p class="text-sm text-gray-600 text-center">Seu ID de Usuário: <span id="userIdDisplay" class="font-bold text-blue-600">Carregando...</span></p>
-        </div> -->
-
         <div class="mb-6 p-4 md:p-6 bg-white rounded-lg border border-gray-200">
             <label for="rawDataInput" class="block text-lg font-semibold text-gray-700 mb-3">
                 Cole os dados do Google Meu Negócio aqui:
@@ -431,80 +426,24 @@
     </div>
 
     <script>
-        // Define a configuração do Firebase (API Key e outros detalhes)
-        // Prioriza as configurações do ambiente Canvas, se disponíveis.
-        let firebaseConfig;
-        let appId; // Renomeado de canvasAppId para appId para ser consistente com o resto do código
-
-        // Default hardcoded configuration
-        const defaultFirebaseConfig = {
-            apiKey: "AIzaSyABjUhnHsga9jPyl0Vz57BLam06j8a0KYY",
-            authDomain: "crm-vizione-firestore.firebaseapp.com",
-            projectId: "crm-vizione-firestore",
-            storageBucket: "crm-vizione-firestore.firebasestorage.app",
-            messagingSenderId: "232305324276",
-            appId: "1:232305324276:web:5bd26e12569449bb5eeea1"
-        };
-
-        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-            try {
-                firebaseConfig = JSON.parse(__firebase_config);
-                // Use __app_id if available, otherwise fallback to projectId from Canvas config
-                appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.projectId;
-            } catch (e) {
-                console.error("Erro ao analisar __firebase_config do Canvas:", e);
-                // Fallback to default hardcoded config if parsing fails
-                firebaseConfig = defaultFirebaseConfig;
-                appId = firebaseConfig.projectId; // Use projectId as fallback for appId
-            }
-        } else {
-            // Use the default hardcoded configuration for environments outside Canvas
-            firebaseConfig = defaultFirebaseConfig;
-            appId = firebaseConfig.projectId; // Use projectId as fallback for appId
-        }
-
-        // Inicializa o Firebase, se ainda não foi inicializado
+        // Global variables for Firebase instances
+        let db;
+        let auth;
         let firebaseApp;
-        try {
-            if (!firebase.apps.length) {
-                firebaseApp = firebase.initializeApp(firebaseConfig);
-            } else {
-                firebaseApp = firebase.app(); // Se já inicializado, apenas pega a instância
-            }
-        } catch (error) {
-            console.error("Erro ao inicializar o Firebase:", error);
-            // Pode ser um erro de inicialização duplicada ou configuração inválida
-            if (error.code === 'app/duplicate-app') {
-                firebaseApp = firebase.app();
-            } else {
-                // Se for outro erro, exibe mensagem e desabilita funcionalidades
-                // Note: showMessage might not be fully initialized yet if this is a very early error
-                // console.error is the most reliable way to report here.
-                document.getElementById('addClientButton').disabled = true;
-                document.getElementById('updateClientButton').disabled = true;
-                document.getElementById('deleteClientButton').disabled = true;
-                isAuthReady = false;
-            }
-        }
-        
-        // Pega as instâncias do Firestore e Auth
-        const db = firebase.firestore();
-        const auth = firebase.auth();
-
+        let appId; // Variável global para o ID da aplicação
 
         // Constantes e variáveis globais
-        const CLIENTES_POR_PAGINA = 10; // Define quantos clientes serão exibidos por página
-        let clients = []; // Array que armazena os clientes atualmente exibidos na tabela
-        let lastVisibleDoc = null; // Referência ao último documento da página atual para paginação 'próxima'
-        let firstVisibleDoc = null; // Referência ao primeiro documento da página atual para paginação 'anterior'
-        let paginationHistory = []; // Histórico de documentos de início de página para navegação "voltar"
-        let currentPage = 0; // Índice da página atual (0-based)
+        const CLIENTES_POR_PAGINA = 10;
+        let clients = [];
+        let lastVisibleDoc = null;
+        let firstVisibleDoc = null;
+        let paginationHistory = [];
+        let currentPage = 0;
 
-        let editingClientId = null; // Armazena o ID do cliente sendo editado no formulário
-        let userId = null; // Armazena o ID do usuário autenticado
-        let isAuthReady = false; // Flag para indicar se a autenticação está pronta
+        let editingClientId = null;
+        let userId = null;
+        let isAuthReady = false;
 
-        // Variável para controlar o elemento de edição rápida atualmente ativo
         let activeQuickEditElement = null;
 
         // Mapeamento dos elementos do DOM
@@ -515,7 +454,7 @@
         const updateClientButton = document.getElementById('updateClientButton');
         const cancelEditButton = document.getElementById('cancelEditButton');
         const clientTableBody = document.getElementById('clientTableBody');
-        const messageBox = document.getElementById('messageBox'); // Elemento para exibir mensagens ao usuário
+        const messageBox = document.getElementById('messageBox');
         const exportExcelButton = document.getElementById('exportExcelButton');
         const deleteClientButton = document.getElementById('deleteClientButton');
         const loadingSpinner = document.getElementById('loadingSpinner');
@@ -565,6 +504,7 @@
          * @param {HTMLElement} [targetBox=messageBox] - O elemento HTML onde a mensagem será exibida.
          */
         function showMessage(message, type, targetBox = messageBox) {
+            console.log(`[showMessage] Tipo: ${type}, Mensagem: ${message}`);
             targetBox.textContent = message;
             targetBox.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700', 'bg-yellow-100', 'text-yellow-700');
             if (type === 'success') {
@@ -575,7 +515,6 @@
                 targetBox.classList.add('bg-yellow-100', 'text-yellow-700');
             }
             targetBox.classList.remove('hidden');
-            // Oculta a mensagem após 3 segundos
             setTimeout(() => {
                 targetBox.classList.add('hidden');
             }, 3000);
@@ -614,6 +553,7 @@
          * Limpa todos os campos do formulário e redefine o estado de edição.
          */
         function clearForm() {
+            console.log("Limpando formulário...");
             companyNameField.value = '';
             contactNameField.value = '';
             phoneField.value = '';
@@ -631,10 +571,10 @@
             notesField.value = '';
             editingClientId = null;
             
-            // Desabilita botões de atualização e exclusão
             updateClientButton.disabled = true;
             deleteClientButton.disabled = true;
             clientDetailsContainer.classList.remove('edit-mode-border');
+            console.log("Formulário limpo.");
         }
 
         /**
@@ -642,6 +582,7 @@
          * @param {Object} client - O objeto cliente contendo os dados a serem preenchidos.
          */
         function fillForm(client) {
+            console.log("Preenchendo formulário com dados do cliente:", client.id);
             companyNameField.value = client.companyName || '';
             contactNameField.value = client.contactName || '';
             phoneField.value = client.phone || '';
@@ -680,11 +621,12 @@
                 lastContactDateField.value = '';
             }
             notesField.value = client.notes || '';
-            editingClientId = client.id; // Corrigido: Agora define o ID do cliente para edição
+            editingClientId = client.id;
             
             updateClientButton.disabled = false;
             deleteClientButton.disabled = false;
             clientDetailsContainer.classList.add('edit-mode-border');
+            console.log("Formulário preenchido e modo de edição ativado.");
         }
 
         /**
@@ -693,6 +635,7 @@
          * @returns {Object} Um objeto com os dados do cliente extraídos.
          */
         function parseRawData(rawText) {
+            console.log("Analisando dados brutos...");
             const data = {};
             const companyNameMatch = rawText.match(/(?:Nome da Empresa:|Empresa:)\s*([^\n]+)/i) || rawText.match(/^([^\n]+)/);
             if (companyNameMatch) {
@@ -763,6 +706,7 @@
             if (notesMatch) {
                 data.notes = notesMatch[1].trim();
             }
+            console.log("Dados brutos analisados:", data);
             return data;
         }
 
@@ -813,7 +757,8 @@
          * @param {HTMLElement} container - O elemento .quick-edit-container a ser desativado.
          */
         function deactivateQuickEdit(container) {
-            if (!container) return; // Garante que há um container para desativar
+            if (!container) return;
+            console.log("Desativando edição rápida para o container:", container);
 
             const displaySpan = container.querySelector('.quick-edit-display');
             const inputField = container.querySelector('.quick-edit-input:not(select)');
@@ -825,7 +770,8 @@
             if (selectField) selectField.classList.add('hidden');
             if (saveButton) saveButton.classList.add('hidden');
 
-            activeQuickEditElement = null; // Reseta o elemento ativo
+            activeQuickEditElement = null;
+            console.log("Edição rápida desativada.");
         }
 
         /**
@@ -833,18 +779,19 @@
          * @param {Array<Object>} clientsToRender - Array de objetos cliente a serem exibidos.
          */
         function renderClientTable(clientsToRender) {
-            clientTableBody.innerHTML = ''; // Limpa o corpo da tabela
+            console.log("Renderizando tabela de clientes. Clientes a renderizar:", clientsToRender.length);
+            clientTableBody.innerHTML = '';
             if (clientsToRender.length === 0) {
                 clientTableBody.innerHTML = `<tr><td colspan="16" class="px-6 py-4 text-center text-gray-500">Nenhum cliente encontrado.</td></tr>`;
+                console.log("Nenhum cliente encontrado para renderizar.");
                 return;
             }
 
             clientsToRender.forEach(client => {
                 const row = clientTableBody.insertRow();
-                row.dataset.id = client.id; // Armazena o ID do documento no elemento da linha
+                row.dataset.id = client.id;
                 row.classList.add('hover:bg-gray-50', 'transition-colors', 'duration-150', 'ease-in-out');
 
-                // Adiciona classes de destaque baseadas no status
                 if (client.status === 'Em Andamento') {
                     row.classList.add('in-progress-row');
                 } else if (client.status === 'Reunião Agendada' || client.status === 'Consultoria Gratuita Agendada' || client.status === 'Segunda Reunião Agendada') {
@@ -852,26 +799,23 @@
                 } else if (client.status === 'Contrato Assinado') {
                     row.classList.add('contract-signed-row');
                 } else {
-                    row.classList.add('bg-white'); // Default background for other rows
+                    row.classList.add('bg-white');
                 }
 
-                // Cria a primeira célula (Nome da Empresa) separadamente para controle de estilo
                 const firstCell = row.insertCell();
                 firstCell.classList.add('px-3', 'md:px-6', 'py-2', 'md:py-4', 'whitespace-nowrap', 'text-sm', 'text-gray-800', 'font-medium', 'text-gray-900');
                 firstCell.innerHTML = client.companyName;
 
-                // Define a cor de fundo da primeira célula para corresponder à cor da linha
                 if (row.classList.contains('in-progress-row')) {
-                    firstCell.style.backgroundColor = '#fffde7'; // Amarelo claro
+                    firstCell.style.backgroundColor = '#fffde7';
                 } else if (row.classList.contains('meeting-scheduled-row')) {
-                    firstCell.style.backgroundColor = '#fffbeb'; // Ambar
+                    firstCell.style.backgroundColor = '#fffbeb';
                 } else if (row.classList.contains('contract-signed-row')) {
-                    firstCell.style.backgroundColor = '#dcfce7'; // Verde claro
+                    firstCell.style.backgroundColor = '#dcfce7';
                 } else {
-                    firstCell.style.backgroundColor = '#ffffff'; // Branco padrão
+                    firstCell.style.backgroundColor = '#ffffff';
                 }
 
-                // Cria as demais células da tabela
                 const remainingCellsContent = [
                     client.contactName,
                     client.phone,
@@ -894,10 +838,9 @@
                     const cell = row.insertCell();
                     cell.classList.add('px-3', 'md:px-6', 'py-2', 'md:py-4', 'whitespace-nowrap', 'text-sm', 'text-gray-800');
 
-                    // Ajusta o índice para mapear corretamente os campos após a primeira coluna
                     let actualFieldName = '';
                     let inputType = 'text';
-                    switch(index + 1) { // +1 porque a primeira coluna já foi tratada
+                    switch(index + 1) {
                         case 6: actualFieldName = 'firstContactDate'; inputType = 'date'; break;
                         case 7: actualFieldName = 'freeConsultationDate'; inputType = 'date'; break;
                         case 8: actualFieldName = 'freeConsultationTime'; inputType = 'time'; break;
@@ -944,12 +887,10 @@
                         const saveButton = cell.querySelector('.quick-edit-btn');
 
                         displaySpan.addEventListener('click', (event) => {
-                            // Se já houver um elemento de edição ativa diferente, desative-o
                             if (activeQuickEditElement && activeQuickEditElement !== quickEditContainer) {
                                 deactivateQuickEdit(activeQuickEditElement);
                             }
 
-                            // Ativa o elemento atual
                             displaySpan.classList.add('hidden');
                             if (selectField) {
                                 selectField.value = client[actualFieldName] || '';
@@ -961,8 +902,8 @@
                                 inputField.focus();
                             }
                             saveButton.classList.remove('hidden');
-                            activeQuickEditElement = quickEditContainer; // Define o elemento atual como ativo
-                            event.stopPropagation(); // Impede que o clique se propague para o document.body imediatamente
+                            activeQuickEditElement = quickEditContainer;
+                            event.stopPropagation();
                         });
 
                         saveButton.addEventListener('click', async (event) => {
@@ -972,7 +913,7 @@
                             } else if (inputField && !inputField.classList.contains('hidden')) {
                                 newValue = inputField.value;
                             } else {
-                                return; // Não há campo de edição visível para salvar
+                                return;
                             }
 
                             const updateData = {};
@@ -983,16 +924,15 @@
                             }
                             
                             try {
-                                // O appId será o projectId do seu Firebase
                                 await db.collection('artifacts').doc(appId).collection('users').doc(userId).collection('clients').doc(client.id).update(updateData);
                                 showMessage('Campo atualizado com sucesso!', 'success');
-                                deactivateQuickEdit(quickEditContainer); // Desativa após salvar
-                                fetchClients(); 
+                                deactivateQuickEdit(quickEditContainer);
+                                fetchClients();
                             } catch (error) {
                                 console.error("Erro ao atualizar campo rápido:", error);
                                 showMessage('Erro ao atualizar campo.', 'error');
                             }
-                            event.stopPropagation(); // Impede que o clique se propague para o document.body
+                            event.stopPropagation();
                         });
                     } else {
                         cell.innerHTML = cellContent;
@@ -1005,6 +945,7 @@
                     fillForm(client);
                 });
             });
+            console.log("Tabela de clientes renderizada.");
         }
 
         /**
@@ -1013,19 +954,22 @@
          * @param {string} [direction='current'] - 'next', 'prev' ou 'current' para controle de paginação.
          */
         async function fetchClients(direction = 'current') {
+            console.log(`[fetchClients] Chamado com direção: ${direction}. isAuthReady: ${isAuthReady}, userId: ${userId}`);
             if (!isAuthReady || !userId) {
+                console.log("[fetchClients] Autenticação não pronta ou userId ausente. Abortando busca.");
                 clientTableBody.innerHTML = `<tr><td colspan="16" class="px-6 py-4 text-center text-gray-500">Aguardando autenticação...</td></tr>`;
                 return;
             }
 
             clientTableBody.innerHTML = `<tr><td colspan="16" class="px-6 py-4 text-center text-gray-500">Carregando clientes...</td></tr>`;
             
-            // O appId será o projectId do seu Firebase
             let queryRef = db.collection('artifacts').doc(appId).collection('users').doc(userId).collection('clients');
+            console.log(`[fetchClients] Caminho da coleção: artifacts/${appId}/users/${userId}/clients`);
 
             const selectedStatuses = Array.from(filterStatusField.selectedOptions).map(option => option.value).filter(value => value !== '');
             if (selectedStatuses.length > 0) {
                 queryRef = queryRef.where('status', 'in', selectedStatuses);
+                console.log("[fetchClients] Filtro de status aplicado:", selectedStatuses);
             }
 
             const filterDateFrom = filterDateFromField.value;
@@ -1033,37 +977,46 @@
 
             if (filterDateFrom) {
                 queryRef = queryRef.where('lastContactDate', '>=', firebase.firestore.Timestamp.fromDate(new Date(filterDateFrom)));
+                console.log("[fetchClients] Filtro de data 'de' aplicado:", filterDateFrom);
             }
             if (filterDateTo) {
                 const dateTo = new Date(filterDateTo);
                 dateTo.setDate(dateTo.getDate() + 1);
                 queryRef = queryRef.where('lastContactDate', '<', firebase.firestore.Timestamp.fromDate(dateTo));
+                console.log("[fetchClients] Filtro de data 'até' aplicado:", filterDateTo);
             }
 
             queryRef = queryRef.orderBy('companyName');
+            console.log("[fetchClients] Ordenando por 'companyName'.");
 
             if (direction === 'next' && lastVisibleDoc) {
                 paginationHistory.push(firstVisibleDoc);
                 queryRef = queryRef.startAfter(lastVisibleDoc);
                 currentPage++;
+                console.log("[fetchClients] Paginação: Próxima página. currentPage:", currentPage);
             } else if (direction === 'prev' && paginationHistory.length > 0) {
                 queryRef = queryRef.startAt(paginationHistory.pop());
                 currentPage--;
+                console.log("[fetchClients] Paginação: Página anterior. currentPage:", currentPage);
             } else if (direction === 'current') {
                 paginationHistory = [];
                 currentPage = 0;
+                console.log("[fetchClients] Paginação: Página atual (reset). currentPage:", currentPage);
             }
 
             queryRef = queryRef.limit(CLIENTES_POR_PAGINA);
+            console.log("[fetchClients] Limite de clientes por página:", CLIENTES_POR_PAGINA);
 
             try {
                 const snapshot = await queryRef.get();
+                console.log("[fetchClients] Snapshot do Firestore recebido. Docs:", snapshot.docs.length);
                 clients = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
                 let filteredClients = clients;
                 const searchTerm = generalSearchInput.value.toLowerCase();
 
                 if (searchTerm) {
+                    console.log("[fetchClients] Termo de pesquisa geral aplicado:", searchTerm);
                     filteredClients = clients.filter(client =>
                         (client.companyName && client.companyName.toLowerCase().includes(searchTerm)) ||
                         (client.contactName && client.contactName.toLowerCase().includes(searchTerm)) ||
@@ -1085,9 +1038,11 @@
                 if (snapshot.docs.length > 0) {
                     firstVisibleDoc = snapshot.docs[0];
                     lastVisibleDoc = snapshot.docs[snapshot.docs.length - 1];
+                    console.log("[fetchClients] firstVisibleDoc e lastVisibleDoc definidos.");
                 } else {
                     firstVisibleDoc = null;
                     lastVisibleDoc = null;
+                    console.log("[fetchClients] Nenhum documento no snapshot, firstVisibleDoc e lastVisibleDoc nulos.");
                 }
 
                 prevPageButton.disabled = currentPage === 0;
@@ -1097,20 +1052,23 @@
                                                 .limit(1)
                                                 .get();
                 nextPageButton.disabled = nextQuerySnapshot.empty;
+                console.log("[fetchClients] Botões de paginação atualizados.");
 
             } catch (error) {
-                console.error("Erro ao buscar clientes:", error);
+                console.error("[fetchClients] Erro ao buscar clientes:", error);
                 showMessage('Erro ao carregar clientes. Verifique as permissões do Firestore.', 'error');
                 clientTableBody.innerHTML = `<tr><td colspan="16" class="px-6 py-4 text-center text-red-500">Erro ao carregar clientes. Tente novamente.</td></tr>`;
             }
-        });
+        }
 
         /**
          * Adiciona um novo cliente ao Firestore.
          */
         addClientButton.addEventListener('click', async () => {
+            console.log("[addClientButton] Clicado. isAuthReady:", isAuthReady, "userId:", userId);
             if (!isAuthReady || !userId) {
                 showMessage('Autenticação não pronta. Tente novamente.', 'error');
+                console.error("[addClientButton] Abortando: Autenticação não pronta ou userId ausente.");
                 return;
             }
             loadingSpinner.classList.remove('hidden');
@@ -1134,20 +1092,22 @@
                 notes: notesField.value,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             };
+            console.log("[addClientButton] Dados do cliente para adicionar:", clientData);
 
             try {
-                // O appId será o projectId do seu Firebase
                 await db.collection('artifacts').doc(appId).collection('users').doc(userId).collection('clients').add(clientData);
                 showMessage('Cliente adicionado com sucesso!', 'success');
+                console.log("[addClientButton] Cliente adicionado com sucesso.");
                 clearForm();
                 fetchClients();
             }
             catch (error) {
-                console.error("Erro ao adicionar cliente:", error);
+                console.error("[addClientButton] Erro ao adicionar cliente:", error);
                 showMessage('Erro ao adicionar cliente.', 'error');
             } finally {
                 loadingSpinner.classList.add('hidden');
                 addClientButton.disabled = false;
+                console.log("[addClientButton] Operação de adicionar finalizada.");
             }
         });
 
@@ -1155,12 +1115,14 @@
          * Atualiza um cliente existente no Firestore.
          */
         updateClientButton.addEventListener('click', async () => {
+            console.log("[updateClientButton] Clicado. editingClientId:", editingClientId);
             if (!editingClientId) {
                 showMessage('Nenhum cliente selecionado para atualização.', 'info');
                 return;
             }
             if (!isAuthReady || !userId) {
                 showMessage('Autenticação não pronta. Tente novamente.', 'error');
+                console.error("[updateClientButton] Abortando: Autenticação não pronta ou userId ausente.");
                 return;
             }
 
@@ -1185,19 +1147,21 @@
                 notes: notesField.value,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
+            console.log("[updateClientButton] Dados do cliente para atualizar:", clientData);
 
             try {
-                // O appId será o projectId do seu Firebase
                 await db.collection('artifacts').doc(appId).collection('users').doc(userId).collection('clients').doc(editingClientId).update(clientData);
                 showMessage('Campo atualizado com sucesso!', 'success');
+                console.log("[updateClientButton] Cliente atualizado com sucesso.");
                 clearForm();
                 fetchClients();
             } catch (error) {
-                console.error("Erro ao atualizar cliente:", error);
+                console.error("[updateClientButton] Erro ao atualizar cliente:", error);
                 showMessage('Erro ao atualizar campo.', 'error');
             } finally {
                 updateLoadingSpinner.classList.add('hidden');
                 updateClientButton.disabled = false;
+                console.log("[updateClientButton] Operação de atualização finalizada.");
             }
         });
 
@@ -1205,17 +1169,20 @@
          * Exclui um cliente do Firestore.
          */
         deleteClientButton.addEventListener('click', async () => {
+            console.log("[deleteClientButton] Clicado. editingClientId:", editingClientId);
             if (!editingClientId) {
                 showMessage('Nenhum cliente selecionado para exclusão.', 'info');
                 return;
             }
             if (!isAuthReady || !userId) {
                 showMessage('Autenticação não pronta. Tente novamente.', 'error');
+                console.error("[deleteClientButton] Abortando: Autenticação não pronta ou userId ausente.");
                 return;
             }
 
             const confirmed = await showConfirmationModal('Tem certeza que deseja excluir este cliente?');
             if (!confirmed) {
+                console.log("[deleteClientButton] Exclusão cancelada pelo usuário.");
                 return;
             }
 
@@ -1223,17 +1190,18 @@
             deleteClientButton.disabled = true;
 
             try {
-                // O appId será o projectId do seu Firebase
                 await db.collection('artifacts').doc(appId).collection('users').doc(userId).collection('clients').doc(editingClientId).delete();
                 showMessage('Cliente excluído com sucesso!', 'success');
+                console.log("[deleteClientButton] Cliente excluído com sucesso.");
                 clearForm();
                 fetchClients();
             } catch (error) {
-                console.error("Erro ao excluir cliente:", error);
+                console.error("[deleteClientButton] Erro ao excluir cliente:", error);
                 showMessage('Erro ao excluir cliente.', 'error');
             } finally {
                 deleteLoadingSpinner.classList.add('hidden');
                 deleteClientButton.disabled = false;
+                console.log("[deleteClientButton] Operação de exclusão finalizada.");
             }
         });
 
@@ -1242,6 +1210,7 @@
          * Analisa o texto bruto e preenche os campos do formulário.
          */
         fillFormButton.addEventListener('click', () => {
+            console.log("[fillFormButton] Clicado.");
             const rawText = rawDataInput.value;
             const clientData = parseRawData(rawText);
             
@@ -1262,19 +1231,25 @@
             notesField.value = clientData.notes || '';
 
             showMessage('Formulário preenchido com dados brutos.', 'info');
+            console.log("[fillFormButton] Formulário preenchido.");
         });
 
         /**
          * Event listener para o botão "Cancelar Edição".
          * Limpa o formulário e redefine o estado de edição.
          */
-        cancelEditButton.addEventListener('click', clearForm);
+        cancelEditButton.addEventListener('click', () => {
+            console.log("[cancelEditButton] Clicado.");
+            clearForm();
+            showMessage('Edição cancelada. Formulário limpo.', 'info');
+        });
 
         /**
          * Event listener para o botão "Exportar Excel".
          * Exporta os dados da tabela para um arquivo Excel.
          */
         exportExcelButton.addEventListener('click', () => {
+            console.log("[exportExcelButton] Clicado. Exportando para Excel...");
             const ws = XLSX.utils.json_to_sheet(clients.map(client => {
                 const formattedClient = { ...client };
                 if (formattedClient.firstContactDate && formattedClient.firstContactDate.toDate) {
@@ -1299,24 +1274,33 @@
             XLSX.utils.book_append_sheet(wb, ws, "Clientes CRM");
             XLSX.writeFile(wb, "clientes_crm.xlsx");
             showMessage('Dados exportados para Excel!', 'success');
+            console.log("[exportExcelButton] Exportação para Excel concluída.");
         });
 
         /**
          * Event listeners para os botões de paginação.
          */
-        prevPageButton.addEventListener('click', () => fetchClients('prev'));
-        nextPageButton.addEventListener('click', () => fetchClients('next'));
+        prevPageButton.addEventListener('click', () => {
+            console.log("[prevPageButton] Clicado.");
+            fetchClients('prev');
+        });
+        nextPageButton.addEventListener('click', () => {
+            console.log("[nextPageButton] Clicado.");
+            fetchClients('next');
+        });
 
         /**
          * Event listeners para os botões de filtro e pesquisa.
          */
         applyFiltersButton.addEventListener('click', () => {
+            console.log("[applyFiltersButton] Clicado.");
             currentPage = 0;
             paginationHistory = [];
             fetchClients('current');
         });
 
         clearFiltersButton.addEventListener('click', () => {
+            console.log("[clearFiltersButton] Clicado.");
             filterStatusField.querySelectorAll('option').forEach(option => option.selected = false);
             filterDateFromField.value = '';
             filterDateToField.value = '';
@@ -1327,57 +1311,115 @@
         });
 
         searchButton.addEventListener('click', () => {
+            console.log("[searchButton] Clicado.");
             currentPage = 0;
             paginationHistory = [];
             fetchClients('current');
         });
 
-        // Inicializa a autenticação e carrega os clientes
-        window.onload = function() {
-            // Verifica se o Firebase foi inicializado com sucesso
-            if (typeof firebaseApp === 'undefined') {
-                console.error("Firebase App não inicializado. Não é possível prosseguir com a autenticação.");
-                return;
+        // Função principal para inicializar Firebase e autenticação
+        async function initializeFirebaseAndAuth() {
+            console.log("--- Iniciando initializeFirebaseAndAuth ---");
+
+            // Define a configuração do Firebase (API Key e outros detalhes)
+            let firebaseConfig;
+            let currentAppId;
+
+            const defaultFirebaseConfig = {
+                apiKey: "AIzaSyABjUhnHsga9jPyl0Vz57BLam06j8a0KYY",
+                authDomain: "crm-vizione-firestore.firebaseapp.com",
+                projectId: "crm-vizione-firestore",
+                storageBucket: "crm-vizione-firestore.firebasestorage.app",
+                messagingSenderId: "232305324276",
+                appId: "1:232305324276:web:5bd26e12569449bb5eeea1"
+            };
+
+            if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                try {
+                    firebaseConfig = JSON.parse(__firebase_config);
+                    currentAppId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.projectId;
+                    console.log("[initializeFirebaseAndAuth] Usando configuração Firebase do Canvas.");
+                } catch (e) {
+                    console.error("[initializeFirebaseAndAuth] Erro ao analisar __firebase_config do Canvas:", e);
+                    firebaseConfig = defaultFirebaseConfig;
+                    currentAppId = firebaseConfig.projectId;
+                    console.log("[initializeFirebaseAndAuth] Fallback para configuração Firebase padrão devido a erro de análise do Canvas.");
+                }
+            } else {
+                firebaseConfig = defaultFirebaseConfig;
+                currentAppId = firebaseConfig.projectId;
+                console.log("[initializeFirebaseAndAuth] Usando configuração Firebase padrão (fora do Canvas).");
             }
 
-            auth.onAuthStateChanged(async function(user) {
-                if (user) {
-                    // Usuário autenticado (seja por token inicial ou anonimamente)
-                    userId = user.uid;
-                    isAuthReady = true;
-                    addClientButton.disabled = false; // Habilita o botão de adicionar
-                    fetchClients(); // Carrega os clientes após a autenticação
+            appId = currentAppId;
+            console.log("[initializeFirebaseAndAuth] App ID definido como:", appId);
+
+            try {
+                if (!firebase.apps.length) {
+                    firebaseApp = firebase.initializeApp(firebaseConfig);
+                    console.log("[initializeFirebaseAndAuth] Aplicativo Firebase inicializado com sucesso.");
                 } else {
-                    // Nenhum usuário autenticado, tenta fazer login
-                    try {
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                            // Tenta autenticar com o token personalizado do Canvas
-                            await auth.signInWithCustomToken(__initial_auth_token);
-                            // onAuthStateChanged será chamado novamente com o usuário autenticado
-                        } else {
-                            // Fallback para autenticação anônima
-                            await auth.signInAnonymously();
-                        }
-                    } catch (error) {
-                        console.error("Erro ao autenticar no Firebase:", error);
-                        let errorMessage = 'Erro ao autenticar. Verifique sua conexão ou permissões.';
-                        if (error.code === 'auth/admin-restricted-operation') {
-                            errorMessage = 'Erro de autenticação: A autenticação anônima pode não estar ativada no seu projeto Firebase ou há um problema com o token de inicialização. Verifique as configurações.';
-                        } else if (error.code === 'auth/invalid-custom-token') {
-                            errorMessage = 'Erro de autenticação: O token de inicialização é inválido. Tente novamente ou verifique as configurações do Canvas.';
-                        }
-                        showMessage(errorMessage, 'error');
-                        addClientButton.disabled = true; // Desabilita o botão de adicionar em caso de falha na autenticação
-                        // Limpa a tabela, pois não há usuário autenticado para buscar dados
-                        clientTableBody.innerHTML = `<tr><td colspan="16" class="px-6 py-4 text-center text-red-500">Falha na autenticação. Não foi possível carregar os dados.</td></tr>`;
-                    }
+                    firebaseApp = firebase.app();
+                    console.log("[initializeFirebaseAndAuth] Aplicativo Firebase já inicializado, obtendo instância existente.");
                 }
-            });
-        };
+                db = firebase.firestore();
+                auth = firebase.auth();
+                console.log("[initializeFirebaseAndAuth] Instâncias Firestore e Auth obtidas com sucesso.");
+
+                // Ouve as mudanças no estado de autenticação
+                auth.onAuthStateChanged(async (user) => {
+                    console.log(`[onAuthStateChanged] Estado de autenticação alterado. Usuário: ${user ? user.uid : "null"}`);
+                    if (user) {
+                        userId = user.uid;
+                        isAuthReady = true;
+                        addClientButton.disabled = false; // Habilita o botão de adicionar
+                        console.log("[onAuthStateChanged] Usuário autenticado:", userId);
+                        await fetchClients(); // Garante que os clientes sejam buscados somente após a autenticação estar pronta
+                    } else {
+                        // Se nenhum usuário, tenta fazer login
+                        try {
+                            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                                console.log("[onAuthStateChanged] Tentando fazer login com token personalizado do Canvas...");
+                                await auth.signInWithCustomToken(__initial_auth_token);
+                                console.log("[onAuthStateChanged] signInWithCustomToken chamado.");
+                            } else {
+                                console.log("[onAuthStateChanged] Tentando fazer login anonimamente...");
+                                await auth.signInAnonymously();
+                                console.log("[onAuthStateChanged] signInAnonymously chamado.");
+                            }
+                        } catch (error) {
+                            console.error("[onAuthStateChanged] Erro durante a tentativa de login:", error);
+                            let errorMessage = 'Erro ao autenticar. Verifique sua conexão ou permissões.';
+                            if (error.code === 'auth/admin-restricted-operation') {
+                                errorMessage = 'Erro de autenticação: A autenticação anônima pode não estar ativada no seu projeto Firebase ou há um problema com o token de inicialização. Verifique as configurações.';
+                            } else if (error.code === 'auth/invalid-custom-token') {
+                                errorMessage = 'Erro de autenticação: O token de inicialização é inválido. Tente novamente ou verifique as configurações do Canvas.';
+                            }
+                            showMessage(errorMessage, 'error');
+                            addClientButton.disabled = true;
+                            clientTableBody.innerHTML = `<tr><td colspan="16" class="px-6 py-4 text-center text-red-500">Falha na autenticação. Não foi possível carregar os dados.</td></tr>`;
+                            isAuthReady = false;
+                        }
+                    }
+                    console.log("--- Fim de onAuthStateChanged ---");
+                });
+
+            } catch (error) {
+                console.error("[initializeFirebaseAndAuth] Erro crítico ao inicializar o Firebase ou obter instâncias:", error);
+                showMessage('Erro crítico ao inicializar o Firebase. Verifique o console para detalhes.', 'error');
+                document.getElementById('addClientButton').disabled = true;
+                document.getElementById('updateClientButton').disabled = true;
+                document.getElementById('deleteClientButton').disabled = true;
+                isAuthReady = false;
+            }
+            console.log("--- Fim de initializeFirebaseAndAuth ---");
+        }
+
+        // Chama a função de inicialização quando a janela carrega
+        window.onload = initializeFirebaseAndAuth;
 
         // Adiciona um listener de clique ao corpo do documento para fechar edições rápidas
         document.body.addEventListener('click', (event) => {
-            // Se houver um elemento de edição rápida ativo e o clique não foi dentro dele
             if (activeQuickEditElement && !activeQuickEditElement.contains(event.target)) {
                 deactivateQuickEdit(activeQuickEditElement);
             }
