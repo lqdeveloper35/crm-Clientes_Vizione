@@ -168,7 +168,7 @@
         }
 
         .modal-button {
-            padding: 8px 15px;
+            /* REMOVIDO: padding: 8px 15px; */
             border-radius: 5px;
             cursor: pointer;
             font-weight: bold;
@@ -198,7 +198,7 @@
                       class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 placeholder-gray-400"
                       placeholder="Ex: Nome da Empresa: Minha Loja Ltda.&#10;Telefone: (11) 98765-4321&#10;Site: www.minhaloja.com.br&#10;Endereço: Rua Exemplo, 123, Centro, Cidade - SP&#10;Email: contato@minhaloja.com.br&#10;Nome de Contato: João Silva&#10;Data do Primeiro Contato: 2024-07-01&#10;Data da Consultoria Gratuita: 2024-07-05&#10;Horário da Consultoria Gratuita: 10:00&#10;Data da Segunda Reunião: 2024-07-10&#10;Horário da Segunda Reunião: 14:30&#10;Data de Início do Contrato: 2023-01-15&#10;Status: Novo Cliente&#10;Último Contato: 2023-05-15"></textarea>
             <button id="fillFormButton"
-                    class="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
+                    class="mt-3 w-full md:w-40 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md block mx-auto">
                 Preencher Formulário
             </button>
         </div>
@@ -293,17 +293,17 @@
             </form>
             <div class="mt-4 md:mt-6 flex justify-center space-x-2 md:space-x-4">
                 <button id="addClientButton"
-                        class="w-1/2 md:w-1/3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md flex items-center justify-center" disabled>
+                        class="w-full md:w-40 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md flex items-center justify-center" disabled>
                     Cadastrar
                     <span id="loadingSpinner" class="loading-spinner hidden"></span>
                 </button>
                 <button id="updateClientButton"
-                        class="w-1/2 md:w-1/3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md flex items-center justify-center" disabled>
+                        class="w-full md:w-40 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md flex items-center justify-center" disabled>
                     Atualizar
                     <span id="updateLoadingSpinner" class="loading-spinner hidden"></span>
                 </button>
                 <button id="cancelEditButton"
-                        class="w-full md:w-auto bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
+                        class="w-full md:w-40 py-2 px-3 bg-gray-400 hover:bg-gray-500 text-white font-bold rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
                     Cancelar
                 </button>
             </div>
@@ -340,13 +340,13 @@
                 </div>
                 <div class="flex-none mt-2 md:mt-0">
                     <button id="applyFiltersButton"
-                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-lg transition duration-300 ease-in-out shadow-md text-sm">
+                            class="w-full md:w-40 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition duration-300 ease-in-out shadow-md text-sm">
                         Aplicar Filtros
                     </button>
                 </div>
                 <div class="flex-none mt-2 md:mt-0">
                     <button id="clearFiltersButton"
-                            class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-3 rounded-lg transition duration-300 ease-in-out shadow-md text-sm">
+                            class="w-full md:w-40 py-2 px-3 bg-gray-400 hover:bg-gray-500 text-white font-bold rounded-lg transition duration-300 ease-in-out shadow-md text-sm">
                         Limpar Filtros
                     </button>
                 </div>
@@ -357,7 +357,7 @@
                     <input type="text" id="generalSearchInput" placeholder="Pesquisar por nome, telefone, email, etc."
                            class="flex-1 p-2 md:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 text-sm">
                     <button id="searchButton"
-                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-lg transition duration-300 ease-in-out shadow-md text-sm">
+                            class="w-full md:w-40 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition duration-300 ease-in-out shadow-md text-sm">
                         Pesquisar
                     </button>
                 </div>
@@ -365,11 +365,11 @@
 
             <div class="mb-3 md:mb-4 text-right flex justify-end space-x-2">
                 <button id="exportExcelButton"
-                        class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-lg transition duration-300 ease-in-out shadow-md text-sm">
+                        class="w-full md:w-40 py-2 px-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition duration-300 ease-in-out shadow-md text-sm">
                     Exportar Excel
                 </button>
                 <button id="deleteClientButton"
-                        class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-lg transition duration-300 ease-in-out shadow-md text-sm flex items-center justify-center" disabled>
+                        class="w-full md:w-40 py-2 px-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition duration-300 ease-in-out shadow-md text-sm flex items-center justify-center" disabled>
                     Excluir
                     <span id="deleteLoadingSpinner" class="loading-spinner hidden"></span>
                 </button>
@@ -402,11 +402,11 @@
             </div>
             <div class="flex justify-center mt-3 md:mt-4 space-x-2 md:space-x-4">
                 <button id="prevPageButton"
-                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-lg transition duration-300 ease-in-out shadow-md text-sm" disabled>
+                        class="w-full md:w-40 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition duration-300 ease-in-out shadow-md text-sm" disabled>
                     Anterior
                 </button>
                 <button id="nextPageButton"
-                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-lg transition duration-300 ease-in-out shadow-md text-sm" disabled>
+                        class="w-full md:w-40 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition duration-300 ease-in-out shadow-md text-sm" disabled>
                     Próxima
                 </button>
             </div>
@@ -419,8 +419,8 @@
         <div class="modal-content">
             <p id="modalMessage" class="text-lg font-semibold text-gray-800 mb-4"></p>
             <div class="modal-buttons">
-                <button id="modalConfirmBtn" class="modal-button confirm">Confirmar</button>
-                <button id="modalCancelBtn" class="modal-button cancel">Cancelar</button>
+                <button id="modalConfirmBtn" class="modal-button confirm w-full md:w-40 py-2 px-3">Confirmar</button>
+                <button id="modalCancelBtn" class="modal-button cancel w-full md:w-40 py-2 px-3">Cancelar</button>
             </div>
         </div>
     </div>
@@ -606,8 +606,7 @@
             } else {
                 secondMeetingDateField.value = '';
             }
-            secondMeetingTimeField.value = client.secondMeetingTime || '';
-
+            secondMeetingTimeField.value = '';
             if (client.contractStartDate && client.contractStartDate.toDate) {
                 contractStartDateField.value = client.contractStartDate.toDate().toISOString().split('T')[0];
             } else {
