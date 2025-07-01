@@ -190,9 +190,10 @@
     <div id="crmApp" class="bg-white rounded-xl shadow-lg">
         <h1 class="text-2xl md:text-3xl font-bold text-center text-gray-800 py-6">Cadastro de Clientes CRM</h1>
 
-        <div class="mb-2 p-4 md:p-6 bg-white rounded-lg border border-gray-200">
+        <!-- Removido o display do ID de Usuário para simplificar a interface -->
+        <!-- <div class="mb-2 p-4 md:p-6 bg-white rounded-lg border border-gray-200">
             <p class="text-sm text-gray-600 text-center">Seu ID de Usuário: <span id="userIdDisplay" class="font-bold text-blue-600">Carregando...</span></p>
-        </div>
+        </div> -->
 
         <div class="mb-6 p-4 md:p-6 bg-white rounded-lg border border-gray-200">
             <label for="rawDataInput" class="block text-lg font-semibold text-gray-700 mb-3">
@@ -431,8 +432,12 @@
 
     <script>
         // Define a configuração do Firebase (API Key e outros detalhes)
-        // Estes valores foram fornecidos por você e são específicos do seu projeto Firebase.
-        const firebaseConfig = {
+        // Prioriza as configurações do ambiente Canvas, se disponíveis.
+        let firebaseConfig;
+        let appId; // Renomeado de canvasAppId para appId para ser consistente com o resto do código
+
+        // Default hardcoded configuration
+        const defaultFirebaseConfig = {
             apiKey: "AIzaSyABjUhnHsga9jPyl0Vz57BLam06j8a0KYY",
             authDomain: "crm-vizione-firestore.firebaseapp.com",
             projectId: "crm-vizione-firestore",
@@ -440,20 +445,53 @@
             messagingSenderId: "232305324276",
             appId: "1:232305324276:web:5bd26e12569449bb5eeea1"
         };
-        
-        // Inicializa o Firebase, se ainda não foi inicializado
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
+
+        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+            try {
+                firebaseConfig = JSON.parse(__firebase_config);
+                // Use __app_id if available, otherwise fallback to projectId from Canvas config
+                appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.projectId;
+            } catch (e) {
+                console.error("Erro ao analisar __firebase_config do Canvas:", e);
+                // Fallback to default hardcoded config if parsing fails
+                firebaseConfig = defaultFirebaseConfig;
+                appId = firebaseConfig.projectId; // Use projectId as fallback for appId
+            }
         } else {
-            firebase.app(); // Se já inicializado, apenas pega a instância
+            // Use the default hardcoded configuration for environments outside Canvas
+            firebaseConfig = defaultFirebaseConfig;
+            appId = firebaseConfig.projectId; // Use projectId as fallback for appId
+        }
+
+        // Inicializa o Firebase, se ainda não foi inicializado
+        let firebaseApp;
+        try {
+            if (!firebase.apps.length) {
+                firebaseApp = firebase.initializeApp(firebaseConfig);
+            } else {
+                firebaseApp = firebase.app(); // Se já inicializado, apenas pega a instância
+            }
+        } catch (error) {
+            console.error("Erro ao inicializar o Firebase:", error);
+            // Pode ser um erro de inicialização duplicada ou configuração inválida
+            if (error.code === 'app/duplicate-app') {
+                firebaseApp = firebase.app();
+            } else {
+                // Se for outro erro, exibe mensagem e desabilita funcionalidades
+                // Note: showMessage might not be fully initialized yet if this is a very early error
+                // console.error is the most reliable way to report here.
+                document.getElementById('addClientButton').disabled = true;
+                document.getElementById('updateClientButton').disabled = true;
+                document.getElementById('deleteClientButton').disabled = true;
+                // Removido userIdDisplay.textContent para evitar referenciar um elemento que pode ter sido removido
+                isAuthReady = false;
+            }
         }
         
         // Pega as instâncias do Firestore e Auth
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        // O appId para o caminho do Firestore será o projectId do seu Firebase
-        const appId = firebaseConfig.projectId;
 
         // Constantes e variáveis globais
         const CLIENTES_POR_PAGINA = 10; // Define quantos clientes serão exibidos por página
@@ -481,7 +519,8 @@
         const loadingSpinner = document.getElementById('loadingSpinner');
         const updateLoadingSpinner = document.getElementById('updateLoadingSpinner');
         const deleteLoadingSpinner = document.getElementById('deleteLoadingSpinner');
-        const userIdDisplay = document.getElementById('userIdDisplay'); // Elemento para exibir o ID do usuário
+        // Removido userIdDisplay do mapeamento, pois o elemento foi removido da interface
+        // const userIdDisplay = document.getElementById('userIdDisplay'); // Elemento para exibir o ID do usuário
 
         const clientDetailsContainer = document.getElementById('clientDetailsContainer');
 
@@ -641,7 +680,7 @@
                 lastContactDateField.value = '';
             }
             notesField.value = client.notes || '';
-            editingClientId = null; // Reset editingClientId
+            editingClientId = client.id; // Corrigido: Agora define o ID do cliente para edição
             
             updateClientButton.disabled = false;
             deleteClientButton.disabled = false;
@@ -1033,7 +1072,7 @@
                 showMessage('Erro ao carregar clientes. Verifique as permissões do Firestore.', 'error');
                 clientTableBody.innerHTML = `<tr><td colspan="16" class="px-6 py-4 text-center text-red-500">Erro ao carregar clientes. Tente novamente.</td></tr>`;
             }
-        }
+        });
 
         /**
          * Adiciona um novo cliente ao Firestore.
@@ -1071,7 +1110,8 @@
                 showMessage('Cliente adicionado com sucesso!', 'success');
                 clearForm();
                 fetchClients();
-            } catch (error) {
+            }
+            catch (error) {
                 console.error("Erro ao adicionar cliente:", error);
                 showMessage('Erro ao adicionar cliente.', 'error');
             } finally {
@@ -1262,19 +1302,25 @@
         });
 
         // Inicializa a autenticação e carrega os clientes
-        window.onload = () => {
-            auth.onAuthStateChanged(async (user) => {
+        window.onload = function() { // Alterado para função tradicional
+            // Verifica se o Firebase foi inicializado com sucesso antes de tentar a autenticação
+            if (typeof firebaseApp === 'undefined') {
+                console.error("Firebase App não inicializado. Não é possível prosseguir com a autenticação.");
+                // Removido userIdDisplay.textContent para evitar referenciar um elemento que pode ter sido removido
+                return;
+            }
+
+            auth.onAuthStateChanged(function(user) { // Alterado para função tradicional
                 if (user) {
                     userId = user.uid;
                     isAuthReady = true;
-                    userIdDisplay.textContent = userId;
+                    // Removido userIdDisplay.textContent para não exibir na interface
                     addClientButton.disabled = false; // Habilita o botão de adicionar após a autenticação
                     fetchClients();
                 } else {
                     try {
-                        // Fora do Canvas, sempre tentará autenticar anonimamente.
-                        // O token inicial do Canvas (__initial_auth_token) não é usado aqui.
-                        await auth.signInAnonymously();
+                        // Tenta autenticar anonimamente
+                        auth.signInAnonymously(); // Removido await para evitar possíveis problemas de ambiente
                     } catch (error) {
                         console.error("Erro ao autenticar no Firebase:", error);
                         // Mensagem de erro mais específica para o caso de autenticação anônima restrita
@@ -1283,7 +1329,7 @@
                         } else {
                             showMessage('Erro ao autenticar. Verifique sua conexão ou permissões.', 'error');
                         }
-                        userIdDisplay.textContent = 'Erro de autenticação';
+                        // Removido userIdDisplay.textContent para não exibir na interface
                         addClientButton.disabled = true; // Mantém desabilitado em caso de erro de autenticação
                     }
                 }
