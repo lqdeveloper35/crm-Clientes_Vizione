@@ -1333,32 +1333,43 @@
         });
 
         // Inicializa a autenticação e carrega os clientes
-        window.onload = function() { // Alterado para função tradicional
-            // Verifica se o Firebase foi inicializado com sucesso antes de tentar a autenticação
+        window.onload = function() {
+            // Verifica se o Firebase foi inicializado com sucesso
             if (typeof firebaseApp === 'undefined') {
                 console.error("Firebase App não inicializado. Não é possível prosseguir com a autenticação.");
                 return;
             }
 
-            auth.onAuthStateChanged(function(user) { // Alterado para função tradicional
+            auth.onAuthStateChanged(async function(user) {
                 if (user) {
+                    // Usuário autenticado (seja por token inicial ou anonimamente)
                     userId = user.uid;
                     isAuthReady = true;
-                    addClientButton.disabled = false; // Habilita o botão de adicionar após a autenticação
-                    fetchClients();
+                    addClientButton.disabled = false; // Habilita o botão de adicionar
+                    fetchClients(); // Carrega os clientes após a autenticação
                 } else {
+                    // Nenhum usuário autenticado, tenta fazer login
                     try {
-                        // Tenta autenticar anonimamente
-                        auth.signInAnonymously(); // Removido await para evitar possíveis problemas de ambiente
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            // Tenta autenticar com o token personalizado do Canvas
+                            await auth.signInWithCustomToken(__initial_auth_token);
+                            // onAuthStateChanged será chamado novamente com o usuário autenticado
+                        } else {
+                            // Fallback para autenticação anônima
+                            await auth.signInAnonymously();
+                        }
                     } catch (error) {
                         console.error("Erro ao autenticar no Firebase:", error);
-                        // Mensagem de erro mais específica para o caso de autenticação anônima restrita
+                        let errorMessage = 'Erro ao autenticar. Verifique sua conexão ou permissões.';
                         if (error.code === 'auth/admin-restricted-operation') {
-                            showMessage('Erro de autenticação: A autenticação anônima pode não estar ativada no seu projeto Firebase. Por favor, verifique as configurações.', 'error');
-                        } else {
-                            showMessage('Erro ao autenticar. Verifique sua conexão ou permissões.', 'error');
+                            errorMessage = 'Erro de autenticação: A autenticação anônima pode não estar ativada no seu projeto Firebase ou há um problema com o token de inicialização. Verifique as configurações.';
+                        } else if (error.code === 'auth/invalid-custom-token') {
+                            errorMessage = 'Erro de autenticação: O token de inicialização é inválido. Tente novamente ou verifique as configurações do Canvas.';
                         }
-                        addClientButton.disabled = true; // Mantém desabilitado em caso de erro de autenticação
+                        showMessage(errorMessage, 'error');
+                        addClientButton.disabled = true; // Desabilita o botão de adicionar em caso de falha na autenticação
+                        // Limpa a tabela, pois não há usuário autenticado para buscar dados
+                        clientTableBody.innerHTML = `<tr><td colspan="16" class="px-6 py-4 text-center text-red-500">Falha na autenticação. Não foi possível carregar os dados.</td></tr>`;
                     }
                 }
             });
