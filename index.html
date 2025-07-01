@@ -1366,6 +1366,16 @@
                 auth = firebase.auth();
                 console.log("[initializeFirebaseAndAuth] Instâncias Firestore e Auth obtidas com sucesso.");
 
+                // *** Adição para persistência da sessão ***
+                await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+                    .then(() => {
+                        console.log("[initializeFirebaseAndAuth] Persistência de autenticação definida para LOCAL.");
+                    })
+                    .catch((error) => {
+                        console.error("[initializeFirebaseAndAuth] Erro ao definir persistência de autenticação:", error);
+                        showMessage('Erro ao configurar persistência de login. Alguns recursos podem não funcionar.', 'error');
+                    });
+
                 // Ouve as mudanças no estado de autenticação
                 auth.onAuthStateChanged(async (user) => {
                     console.log(`[onAuthStateChanged] Estado de autenticação alterado. Usuário: ${user ? user.uid : "null"}`);
@@ -1374,6 +1384,7 @@
                         isAuthReady = true;
                         addClientButton.disabled = false; // Habilita o botão de adicionar
                         console.log("[onAuthStateChanged] Usuário autenticado:", userId);
+                        console.log("[onAuthStateChanged] auth.currentUser.metadata:", auth.currentUser.metadata); // Log de metadados do usuário
                         await fetchClients(); // Garante que os clientes sejam buscados somente após a autenticação estar pronta
                     } else {
                         // Se nenhum usuário, tenta fazer login
