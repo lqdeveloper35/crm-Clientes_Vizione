@@ -483,7 +483,6 @@
                 document.getElementById('addClientButton').disabled = true;
                 document.getElementById('updateClientButton').disabled = true;
                 document.getElementById('deleteClientButton').disabled = true;
-                // Removido userIdDisplay.textContent para evitar referenciar um elemento que pode ter sido removido
                 isAuthReady = false;
             }
         }
@@ -505,6 +504,9 @@
         let userId = null; // Armazena o ID do usuário autenticado
         let isAuthReady = false; // Flag para indicar se a autenticação está pronta
 
+        // Variável para controlar o elemento de edição rápida atualmente ativo
+        let activeQuickEditElement = null;
+
         // Mapeamento dos elementos do DOM
         const rawDataInput = document.getElementById('rawDataInput');
         const fillFormButton = document.getElementById('fillFormButton');
@@ -519,8 +521,6 @@
         const loadingSpinner = document.getElementById('loadingSpinner');
         const updateLoadingSpinner = document.getElementById('updateLoadingSpinner');
         const deleteLoadingSpinner = document.getElementById('deleteLoadingSpinner');
-        // Removido userIdDisplay do mapeamento, pois o elemento foi removido da interface
-        // const userIdDisplay = document.getElementById('userIdDisplay'); // Elemento para exibir o ID do usuário
 
         const clientDetailsContainer = document.getElementById('clientDetailsContainer');
 
@@ -809,6 +809,26 @@
         }
 
         /**
+         * Desativa o modo de edição rápida para um elemento específico.
+         * @param {HTMLElement} container - O elemento .quick-edit-container a ser desativado.
+         */
+        function deactivateQuickEdit(container) {
+            if (!container) return; // Garante que há um container para desativar
+
+            const displaySpan = container.querySelector('.quick-edit-display');
+            const inputField = container.querySelector('.quick-edit-input:not(select)');
+            const selectField = container.querySelector('.quick-edit-input.quick-edit-status');
+            const saveButton = container.querySelector('.quick-edit-btn');
+
+            if (displaySpan) displaySpan.classList.remove('hidden');
+            if (inputField) inputField.classList.add('hidden');
+            if (selectField) selectField.classList.add('hidden');
+            if (saveButton) saveButton.classList.add('hidden');
+
+            activeQuickEditElement = null; // Reseta o elemento ativo
+        }
+
+        /**
          * Renderiza a tabela de clientes com os dados fornecidos.
          * @param {Array<Object>} clientsToRender - Array de objetos cliente a serem exibidos.
          */
@@ -917,12 +937,19 @@
                                 <button class="quick-edit-btn hidden" data-field="${actualFieldName}" data-id="${client.id}">Salvar</button>
                             </div>
                         `;
+                        const quickEditContainer = cell.querySelector('.quick-edit-container');
                         const displaySpan = cell.querySelector('.quick-edit-display');
                         const inputField = cell.querySelector('.quick-edit-input:not(select)');
                         const selectField = cell.querySelector('.quick-edit-input.quick-edit-status');
                         const saveButton = cell.querySelector('.quick-edit-btn');
 
-                        displaySpan.addEventListener('click', () => {
+                        displaySpan.addEventListener('click', (event) => {
+                            // Se já houver um elemento de edição ativa diferente, desative-o
+                            if (activeQuickEditElement && activeQuickEditElement !== quickEditContainer) {
+                                deactivateQuickEdit(activeQuickEditElement);
+                            }
+
+                            // Ativa o elemento atual
                             displaySpan.classList.add('hidden');
                             if (selectField) {
                                 selectField.value = client[actualFieldName] || '';
@@ -934,9 +961,11 @@
                                 inputField.focus();
                             }
                             saveButton.classList.remove('hidden');
+                            activeQuickEditElement = quickEditContainer; // Define o elemento atual como ativo
+                            event.stopPropagation(); // Impede que o clique se propague para o document.body imediatamente
                         });
 
-                        saveButton.addEventListener('click', async () => {
+                        saveButton.addEventListener('click', async (event) => {
                             let newValue;
                             if (selectField && !selectField.classList.contains('hidden')) {
                                 newValue = selectField.value;
@@ -957,11 +986,13 @@
                                 // O appId será o projectId do seu Firebase
                                 await db.collection('artifacts').doc(appId).collection('users').doc(userId).collection('clients').doc(client.id).update(updateData);
                                 showMessage('Campo atualizado com sucesso!', 'success');
+                                deactivateQuickEdit(quickEditContainer); // Desativa após salvar
                                 fetchClients(); 
                             } catch (error) {
                                 console.error("Erro ao atualizar campo rápido:", error);
                                 showMessage('Erro ao atualizar campo.', 'error');
                             }
+                            event.stopPropagation(); // Impede que o clique se propague para o document.body
                         });
                     } else {
                         cell.innerHTML = cellContent;
@@ -1306,7 +1337,6 @@
             // Verifica se o Firebase foi inicializado com sucesso antes de tentar a autenticação
             if (typeof firebaseApp === 'undefined') {
                 console.error("Firebase App não inicializado. Não é possível prosseguir com a autenticação.");
-                // Removido userIdDisplay.textContent para evitar referenciar um elemento que pode ter sido removido
                 return;
             }
 
@@ -1314,7 +1344,6 @@
                 if (user) {
                     userId = user.uid;
                     isAuthReady = true;
-                    // Removido userIdDisplay.textContent para não exibir na interface
                     addClientButton.disabled = false; // Habilita o botão de adicionar após a autenticação
                     fetchClients();
                 } else {
@@ -1329,12 +1358,19 @@
                         } else {
                             showMessage('Erro ao autenticar. Verifique sua conexão ou permissões.', 'error');
                         }
-                        // Removido userIdDisplay.textContent para não exibir na interface
                         addClientButton.disabled = true; // Mantém desabilitado em caso de erro de autenticação
                     }
                 }
             });
         };
+
+        // Adiciona um listener de clique ao corpo do documento para fechar edições rápidas
+        document.body.addEventListener('click', (event) => {
+            // Se houver um elemento de edição rápida ativo e o clique não foi dentro dele
+            if (activeQuickEditElement && !activeQuickEditElement.contains(event.target)) {
+                deactivateQuickEdit(activeQuickEditElement);
+            }
+        });
     </script>
 </body>
 </html>
