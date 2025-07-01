@@ -197,10 +197,17 @@
             <textarea id="rawDataInput" rows="6" md:rows="8"
                       class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 placeholder-gray-400"
                       placeholder="Ex: Nome da Empresa: Minha Loja Ltda.&#10;Telefone: (11) 98765-4321&#10;Site: www.minhaloja.com.br&#10;Endereço: Rua Exemplo, 123, Centro, Cidade - SP&#10;Email: contato@minhaloja.com.br&#10;Nome de Contato: João Silva&#10;Data do Primeiro Contato: 2024-07-01&#10;Data da Consultoria Gratuita: 2024-07-05&#10;Horário da Consultoria Gratuita: 10:00&#10;Data da Segunda Reunião: 2024-07-10&#10;Horário da Segunda Reunião: 14:30&#10;Data de Início do Contrato: 2023-01-15&#10;Status: Novo Cliente&#10;Último Contato: 2023-05-15"></textarea>
-            <button id="fillFormButton"
-                    class="mt-3 w-full md:w-40 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md block mx-auto">
-                Preencher Formulário
-            </button>
+            
+            <div class="mt-3 flex flex-col md:flex-row justify-center items-center gap-3">
+                <button id="fillFormButton"
+                        class="w-full md:w-40 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
+                    Preencher Formulário
+                </button>
+                <button id="voiceInputButton"
+                        class="w-full md:w-40 py-2 px-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
+                    Falar para Preencher
+                </button>
+            </div>
         </div>
 
         <div id="clientDetailsContainer" class="mb-6 p-4 md:p-6 bg-white rounded-xl border border-gray-200">
@@ -449,6 +456,7 @@
         // Mapeamento dos elementos do DOM
         const rawDataInput = document.getElementById('rawDataInput');
         const fillFormButton = document.getElementById('fillFormButton');
+        const voiceInputButton = document.getElementById('voiceInputButton'); // Novo botão de input de voz
         const clientForm = document.getElementById('clientForm');
         const addClientButton = document.getElementById('addClientButton');
         const updateClientButton = document.getElementById('updateClientButton');
@@ -496,6 +504,10 @@
         const modalMessage = document.getElementById('modalMessage');
         const modalConfirmBtn = document.getElementById('modalConfirmBtn');
         const modalCancelBtn = document.getElementById('modalCancelBtn');
+
+        // Variáveis para o reconhecimento de fala
+        let recognition;
+        let isRecognizing = false;
 
         /**
          * Exibe uma mensagem para o usuário.
@@ -1316,6 +1328,87 @@
             fetchClients('current');
         });
 
+        // Função para inicializar o reconhecimento de fala
+        function initializeSpeechRecognition() {
+            // Verifica a compatibilidade do navegador
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                showMessage('Seu navegador não suporta reconhecimento de fala. Use o Chrome para esta funcionalidade.', 'error');
+                voiceInputButton.disabled = true;
+                return;
+            }
+
+            recognition = new SpeechRecognition();
+            recognition.continuous = true; // Continua a capturar fala até ser parado explicitamente
+            recognition.interimResults = true; // Mostra resultados provisórios
+            recognition.lang = 'pt-BR'; // Define o idioma para Português do Brasil
+
+            recognition.onstart = () => {
+                isRecognizing = true;
+                voiceInputButton.textContent = 'Parar de Falar';
+                voiceInputButton.classList.remove('bg-purple-600');
+                voiceInputButton.classList.add('bg-red-600');
+                showMessage('Ouvindo... Fale agora.', 'info');
+                console.log("[SpeechRecognition] Reconhecimento iniciado.");
+            };
+
+            recognition.onresult = (event) => {
+                let interimTranscript = '';
+                let finalTranscript = '';
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+                // Atualiza a área de texto com o texto final e provisório
+                rawDataInput.value = finalTranscript + interimTranscript;
+                console.log("[SpeechRecognition] Resultado provisório:", interimTranscript);
+                console.log("[SpeechRecognition] Resultado final:", finalTranscript);
+            };
+
+            recognition.onerror = (event) => {
+                isRecognizing = false;
+                voiceInputButton.textContent = 'Falar para Preencher';
+                voiceInputButton.classList.remove('bg-red-600');
+                voiceInputButton.classList.add('bg-purple-600');
+                console.error("[SpeechRecognition] Erro no reconhecimento de fala:", event.error);
+                if (event.error === 'not-allowed') {
+                    showMessage('Permissão para usar o microfone negada. Por favor, permita o acesso ao microfone nas configurações do navegador.', 'error');
+                } else if (event.error === 'no-speech') {
+                    showMessage('Nenhuma fala detectada. Tente novamente.', 'info');
+                } else {
+                    showMessage(`Erro no reconhecimento de fala: ${event.error}`, 'error');
+                }
+            };
+
+            recognition.onend = () => {
+                isRecognizing = false;
+                voiceInputButton.textContent = 'Falar para Preencher';
+                voiceInputButton.classList.remove('bg-red-600');
+                voiceInputButton.classList.add('bg-purple-600');
+                showMessage('Reconhecimento de fala finalizado.', 'info');
+                console.log("[SpeechRecognition] Reconhecimento finalizado.");
+            };
+        }
+
+        // Event listener para o botão de input de voz
+        voiceInputButton.addEventListener('click', () => {
+            if (!recognition) {
+                showMessage('Reconhecimento de fala não inicializado. Tente recarregar a página.', 'error');
+                return;
+            }
+            if (isRecognizing) {
+                recognition.stop();
+                console.log("[VoiceInputButton] Parando reconhecimento.");
+            } else {
+                rawDataInput.value = ''; // Limpa a área de texto antes de iniciar
+                recognition.start();
+                console.log("[VoiceInputButton] Iniciando reconhecimento.");
+            }
+        });
+
         // Função principal para inicializar Firebase e autenticação
         async function initializeFirebaseAndAuth() {
             console.log("--- Iniciando initializeFirebaseAndAuth ---");
@@ -1426,7 +1519,10 @@
         }
 
         // Chama a função de inicialização quando a janela carrega
-        window.onload = initializeFirebaseAndAuth;
+        window.onload = () => {
+            initializeFirebaseAndAuth();
+            initializeSpeechRecognition(); // Inicializa o reconhecimento de fala
+        };
 
         // Adiciona um listener de clique ao corpo do documento para fechar edições rápidas
         document.body.addEventListener('click', (event) => {
