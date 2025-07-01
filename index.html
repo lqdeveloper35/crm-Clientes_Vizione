@@ -642,82 +642,143 @@
 
         /**
          * Analisa o texto bruto do Google Meu Negócio e extrai informações do cliente.
+         * Esta função foi aprimorada para ser mais flexível na identificação de dados.
          * @param {string} rawText - O texto bruto a ser analisado.
          * @returns {Object} Um objeto com os dados do cliente extraídos.
          */
         function parseRawData(rawText) {
-            console.log("Analisando dados brutos...");
+            console.log("Analisando dados brutos com lógica aprimorada...");
             const data = {};
-            const companyNameMatch = rawText.match(/(?:Nome da Empresa:|Empresa:)\s*([^\n]+)/i) || rawText.match(/^([^\n]+)/);
-            if (companyNameMatch) {
-                data.companyName = companyNameMatch[1].trim();
-            }
-            const contactNameMatch = rawText.match(/(?:Nome de Contato:|Contato:)\s*([^\n]+)/i);
-            if (contactNameMatch) {
-                data.contactName = contactNameMatch[1].trim();
-            }
-            const phoneMatch = rawText.match(/(?:\(?\d{2}\)?\s*\d{4,5}[-\s]?\d{4}|\+\d{2}\s*\d{2}\s*\d{4,5}[-\s]?\d{4})/);
-            if (phoneMatch) {
-                data.phone = phoneMatch[0].trim();
-            }
-            const emailMatch = rawText.match(/[\w\.-]+@[\w\.-]+\.\w+/);
-            if (emailMatch) {
-                data.email = emailMatch[0].trim();
-            }
-            const websiteMatch = rawText.match(/(?:https?:\/\/)?(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+(?:\/[^\s]*)?)/);
-            if (websiteMatch) {
-                data.website = websiteMatch[0].trim();
-                if (!data.website.startsWith('http://') && !data.website.startsWith('https://')) {
-                    data.website = 'http://' + data.website;
+            let remainingText = rawText; // Usaremos esta variável para remover o texto à medida que é extraído
+
+            // Helper para extrair e remover o primeiro match
+            const extractAndRemove = (text, regex) => {
+                const match = text.match(regex);
+                if (match) {
+                    const value = match[1] ? match[1].trim() : match[0].trim(); // Captura o grupo se houver, senão o match inteiro
+                    // Substitui o texto encontrado por espaços para não afetar outras regex, mas o remove logicamente
+                    const newText = text.replace(match[0], ' '.repeat(match[0].length));
+                    return { value, newText };
                 }
-            }
-            const addressMatch = rawText.match(/(?:Endereço:|Rua|Av\.|Avenida|Travessa|Praça)\s*([^\n]+(?:,\s*\d+)?(?:,\s*[^\n]+)?(?:-\s*[^\n]+)?(?:,\s*CEP\s*\d{5}-?\d{3})?)/i);
-            if (addressMatch) {
-                data.address = addressMatch[0].trim();
-            } else {
-                const genericAddressMatch = rawText.match(/(\d{1,5}\s+[A-Za-z\s]+\s+(?:Rua|Av\.|Avenida|Travessa|Praça|Bairro|Centro|Cidade|Estado)[^\n]*)/i);
-                if (genericAddressMatch) {
-                    data.address = genericAddressMatch[0].trim();
-                }
-            }
-            const firstContactDateMatch = rawText.match(/(?:Data do Primeiro Contato:|Primeiro Contato:)\s*(\d{4}-\d{2}-\d{2})/i);
-            if (firstContactDateMatch) {
-                data.firstContactDate = firstContactDateMatch[1].trim();
-            }
-            const freeConsultationDateMatch = rawText.match(/(?:Data da Consultoria Gratuita:|Consultoria Gratuita Data:)\s*(\d{4}-\d{2}-\d{2})/i);
-            if (freeConsultationDateMatch) {
-                data.freeConsultationDate = freeConsultationDateMatch[1].trim();
-            }
-            const freeConsultationTimeMatch = rawText.match(/(?:Horário da Consultoria Gratuita:|Consultoria Gratuita Horário:)\s*(\d{2}:\d{2})/i);
-            if (freeConsultationTimeMatch) {
-                data.freeConsultationTime = freeConsultationTimeMatch[1].trim();
-            }
-            const secondMeetingDateMatch = rawText.match(/(?:Data da Segunda Reunião:|Segunda Reunião Data:)\s*(\d{4}-\d{2}-\d{2})/i);
-            if (secondMeetingDateMatch) {
-                data.secondMeetingDate = secondMeetingDateMatch[1].trim();
-            }
-            const secondMeetingTimeMatch = rawText.match(/(?:Horário da Segunda Reunião:|Segunda Reunião Horário:)\s*(\d{2}:\d{2})/i);
-            if (secondMeetingTimeMatch) {
-                data.secondMeetingTime = secondMeetingTimeMatch[1].trim();
+                return { value: null, newText: text };
+            };
+
+            // 1. Extrair e-mail (padrão mais robusto)
+            let result = extractAndRemove(remainingText, /\b([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b/i);
+            if (result.value) {
+                data.email = result.value;
+                remainingText = result.newText;
+                console.log("Email extraído:", data.email);
             }
 
-            const contractStartDateMatch = rawText.match(/(?:Data de Início do Contrato:|Início Contrato:)\s*(\d{4}-\d{2}-\d{2})/i);
-            if (contractStartDateMatch) {
-                data.contractStartDate = contractStartDateMatch[1].trim();
+            // 2. Extrair telefone (padrão mais flexível, incluindo com e sem DDD, com e sem hífen/espaço)
+            result = extractAndRemove(remainingText, /\b(?:\(?\d{2}\)?[\s.-]?)?\d{4,5}[-\s.]?\d{4}\b/);
+            if (result.value) {
+                data.phone = result.value.replace(/[\s.-]/g, ''); // Remove espaços e hífens para padronizar
+                remainingText = result.newText;
+                console.log("Telefone extraído:", data.phone);
             }
-            const statusMatch = rawText.match(/(?:Status:)\s*([^\n]+)/i);
-            if (statusMatch) {
-                data.status = statusMatch[1].trim();
+
+            // 3. Extrair site (padrão mais flexível, com ou sem http/https/www)
+            result = extractAndRemove(remainingText, /\b(?:https?:\/\/(?:www\.)?|www\.)?([a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+(?:\/[^\s]*)?)\b/i);
+            if (result.value) {
+                data.website = result.value;
+                if (!data.website.startsWith('http://') && !data.website.startsWith('https://')) {
+                    data.website = 'http://' + data.website; // Adiciona http se não houver
+                }
+                remainingText = result.newText;
+                console.log("Site extraído:", data.website);
             }
-            const lastContactDateMatch = rawText.match(/(?:Último Contato:)\s*(\d{4}-\d{2}-\d{2})/i);
-            if (lastContactDateMatch) {
-                data.lastContactDate = lastContactDateMatch[1].trim();
+
+            // 4. Extrair datas (YYYY-MM-DD ou DD/MM/YYYY)
+            // Prioriza YYYY-MM-DD
+            result = extractAndRemove(remainingText, /\b(\d{4}-\d{2}-\d{2})\b/);
+            if (result.value) {
+                data.firstContactDate = result.value; // Pode ser qualquer data, vamos atribuir à primeira
+                remainingText = result.newText;
+                console.log("Data (YYYY-MM-DD) extraída:", data.firstContactDate);
+            } else {
+                // Tenta DD/MM/YYYY
+                result = extractAndRemove(remainingText, /\b(\d{2}\/\d{2}\/\d{4})\b/);
+                if (result.value) {
+                    // Converte para YYYY-MM-DD para o campo de data HTML
+                    const parts = result.value.split('/');
+                    data.firstContactDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                    remainingText = result.newText;
+                    console.log("Data (DD/MM/YYYY) extraída e convertida:", data.firstContactDate);
+                }
             }
-            const notesMatch = rawText.match(/(?:Observações:|Notas:)\s*([^\n]+)/i);
-            if (notesMatch) {
-                data.notes = notesMatch[1].trim();
+
+            // 5. Extrair horários (HH:MM)
+            result = extractAndRemove(remainingText, /\b(\d{2}:\d{2})\b/);
+            if (result.value) {
+                data.freeConsultationTime = result.value; // Atribui ao primeiro horário encontrado
+                remainingText = result.newText;
+                console.log("Horário extraído:", data.freeConsultationTime);
             }
-            console.log("Dados brutos analisados:", data);
+
+            // 6. Extrair Status (procura por palavras-chave de status conhecidas)
+            const statusKeywords = ['Novo Cliente', 'Em Andamento', 'Aguardando Contato', 'Perdido', 'Reunião Agendada', 'Consultoria Gratuita Agendada', 'Segunda Reunião Agendada', 'Contrato Assinado'];
+            for (const status of statusKeywords) {
+                const statusRegex = new RegExp(`\\b${status}\\b`, 'i');
+                result = extractAndRemove(remainingText, statusRegex);
+                if (result.value) {
+                    data.status = status; // Garante que o status seja um dos valores válidos
+                    remainingText = result.newText;
+                    console.log("Status extraído:", data.status);
+                    break; // Sai do loop assim que um status é encontrado
+                }
+            }
+
+            // 7. Extrair Nome da Empresa (primeira linha ou texto antes de um rótulo conhecido)
+            // Se já tiver um companyName de um rótulo, mantém. Senão, tenta inferir.
+            if (!data.companyName) {
+                const companyNameMatch = rawText.match(/(?:Nome da Empresa:|Empresa:)\s*([^\n]+)/i);
+                if (companyNameMatch) {
+                    data.companyName = companyNameMatch[1].trim();
+                    remainingText = remainingText.replace(companyNameMatch[0], ' '.repeat(companyNameMatch[0].length));
+                } else {
+                    // Tenta pegar a primeira linha não vazia como nome da empresa, se não houver rótulo
+                    const lines = remainingText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+                    if (lines.length > 0 && !data.email && !data.phone && !data.website) { // Evita pegar email/tel/site como nome da empresa
+                        data.companyName = lines[0];
+                        remainingText = remainingText.replace(lines[0], ' '.repeat(lines[0].length));
+                        console.log("Nome da Empresa inferido:", data.companyName);
+                    }
+                }
+            }
+
+
+            // 8. Extrair Nome de Contato (procura por "Nome de Contato:" ou "Contato:")
+            result = extractAndRemove(remainingText, /(?:Nome de Contato:|Contato:)\s*([^\n]+)/i);
+            if (result.value) {
+                data.contactName = result.value;
+                remainingText = result.newText;
+                console.log("Nome de Contato extraído:", data.contactName);
+            }
+
+            // 9. Extrair Endereço (procura por rótulos ou padrões de endereço)
+            result = extractAndRemove(remainingText, /(?:Endereço:|Rua|Av\.|Avenida|Travessa|Praça)\s*([^\n]+(?:,\s*\d+)?(?:,\s*[^\n]+)?(?:-\s*[^\n]+)?(?:,\s*CEP\s*\d{5}-?\d{3})?)/i);
+            if (result.value) {
+                data.address = result.value;
+                remainingText = result.newText;
+                console.log("Endereço extraído:", data.address);
+            } else {
+                // Tenta um padrão mais genérico para endereço se o rótulo não for encontrado
+                result = extractAndRemove(remainingText, /(\d{1,5}\s+[A-Za-z\s]+\s+(?:Rua|Av\.|Avenida|Travessa|Praça|Bairro|Centro|Cidade|Estado)[^\n]*)/i);
+                if (result.value) {
+                    data.address = result.value;
+                    remainingText = result.newText;
+                    console.log("Endereço genérico extraído:", data.address);
+                }
+            }
+
+
+            // 10. Atribuir o restante do texto às Observações
+            data.notes = remainingText.replace(/\s+/g, ' ').trim(); // Remove múltiplos espaços e trim
+            console.log("Observações (texto restante):", data.notes);
+
+            console.log("Dados brutos analisados (final):", data);
             return data;
         }
 
