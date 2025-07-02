@@ -771,7 +771,7 @@
             }
             console.log("Endereço extraído:", data.address);
 
-            // 6. Dates (YYYY-MM-DD or DD/MM/YYYY) - Prioritize YYYY-MM-DD for consistency
+            // 6. Dates (YYYY-MM-DD or DD/MM/YYYY) - Prioritize ISO format for consistency
             let dateVal = extractAndRemove(/\b(\d{4}-\d{2}-\d{2})\b/);
             if (dateVal) {
                 data.firstContactDate = dateVal;
@@ -1205,6 +1205,40 @@
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             };
             console.log("[addClientButton] Dados do cliente para adicionar:", clientData);
+
+            // --- Lógica de verificação de duplicidade adicionada aqui ---
+            try {
+                const clientsRef = db.collection('artifacts').doc(appId).collection('users').doc(userId).collection('clients');
+                
+                // Verifica duplicidade por nome da empresa
+                const companyNameQuery = clientsRef.where('companyName', '==', clientData.companyName);
+                const companyNameSnapshot = await companyNameQuery.get();
+
+                // Verifica duplicidade por telefone (normalizado)
+                const phoneQuery = clientsRef.where('phone', '==', clientData.phone);
+                const phoneSnapshot = await phoneQuery.get();
+
+                if (!companyNameSnapshot.empty) {
+                    showMessage('Erro: Já existe um cliente com este nome de empresa.', 'error');
+                    loadingSpinner.classList.add('hidden');
+                    addClientButton.disabled = false;
+                    return; // Impede o cadastro
+                }
+
+                if (clientData.phone && !phoneSnapshot.empty) { // Verifica telefone apenas se ele não estiver vazio
+                    showMessage('Erro: Já existe um cliente com este número de telefone.', 'error');
+                    loadingSpinner.classList.add('hidden');
+                    addClientButton.disabled = false;
+                    return; // Impede o cadastro
+                }
+            } catch (error) {
+                console.error("[addClientButton] Erro ao verificar duplicidade:", error);
+                showMessage('Erro ao verificar duplicidade. Tente novamente.', 'error');
+                loadingSpinner.classList.add('hidden');
+                addClientButton.disabled = false;
+                return; // Impede o cadastro em caso de erro na verificação
+            }
+            // --- Fim da lógica de verificação de duplicidade ---
 
             try {
                 await db.collection('artifacts').doc(appId).collection('users').doc(userId).collection('clients').add(clientData);
@@ -1690,7 +1724,7 @@
                     } else if (/(?:https?:\/\/|www\.)/.test(line) && !tempParsedData.website) {
                         tempParsedData.website = line;
                     } else if (/\b(\d{4}-\d{2}-\d{2})\b|\b(\d{2}\/\d{2}\/\d{4})\b/.test(line) && !tempParsedData.firstContactDate) {
-                        // Prioriza YYYY-MM-DD
+                        // Prioriza ISO format
                         let dateMatch = line.match(/\b(\d{4}-\d{2}-\d{2})\b/);
                         if (dateMatch) {
                             tempParsedData.firstContactDate = dateMatch[1];
